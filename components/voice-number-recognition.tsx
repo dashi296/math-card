@@ -11,6 +11,7 @@ export default function VoiceNumberRecognition() {
   const [recognizedNumber, setRecognizedNumber] = useState("");
   const [recognizedText, setRecognizedText] = useState("");
   const [error, setError] = useState("");
+  const [interimText, setInterimText] = useState("");
 
   // 音声認識開始イベント
   useSpeechRecognitionEvent("start", () => {
@@ -27,11 +28,20 @@ export default function VoiceNumberRecognition() {
   useSpeechRecognitionEvent("result", (event) => {
     const results = event.results;
     if (results && results.length > 0) {
-      const { transcript } = results[0];
+      const result = results[0];
+      const { transcript } = result;
+
       if (transcript) {
-        setRecognizedText(transcript);
-        const number = extractNumber(transcript);
-        setRecognizedNumber(number);
+        // 暫定結果（話している最中）
+        if (!result.isFinal) {
+          setInterimText(transcript);
+        } else {
+          // 確定結果
+          setInterimText("");
+          setRecognizedText(transcript);
+          const number = extractNumber(transcript);
+          setRecognizedNumber(number);
+        }
       }
     }
   });
@@ -50,54 +60,169 @@ export default function VoiceNumberRecognition() {
       return numberMatch[0];
     }
 
-    // 日本語の数字を変換（単一の数字）
-    const japaneseNumbers: { [key: string]: string } = {
-      零: "0",
-      ゼロ: "0",
-      れい: "0",
-      一: "1",
-      いち: "1",
-      二: "2",
-      に: "2",
-      三: "3",
-      さん: "3",
-      四: "4",
-      し: "4",
-      よん: "4",
-      五: "5",
-      ご: "5",
-      六: "6",
-      ろく: "6",
-      七: "7",
-      しち: "7",
-      なな: "7",
-      八: "8",
-      はち: "8",
-      九: "9",
-      きゅう: "9",
-      く: "9",
-      十: "10",
-      じゅう: "10",
+    // 日本語の基本数字マッピング（0-9）
+    const kanjiToNum: { [key: string]: number } = {
+      零: 0, ゼロ: 0, れい: 0, レイ: 0,
+      一: 1, いち: 1, イチ: 1, 壱: 1,
+      二: 2, に: 2, ニ: 2, 弐: 2,
+      三: 3, さん: 3, サン: 3, 参: 3,
+      四: 4, し: 4, よん: 4, シ: 4, ヨン: 4,
+      五: 5, ご: 5, ゴ: 5,
+      六: 6, ろく: 6, ロク: 6,
+      七: 7, しち: 7, なな: 7, シチ: 7, ナナ: 7,
+      八: 8, はち: 8, ハチ: 8,
+      九: 9, きゅう: 9, く: 9, キュウ: 9, ク: 9,
     };
 
-    // テキストを小文字に変換して検索
-    const lowerText = text.toLowerCase();
+    // 位取りマッピング
+    const unitToMultiplier: { [key: string]: number } = {
+      十: 10, じゅう: 10, ジュウ: 10,
+      百: 100, ひゃく: 100, ヒャク: 100,
+      千: 1000, せん: 1000, セン: 1000,
+      万: 10000, まん: 10000, マン: 10000,
+    };
 
-    for (const [key, value] of Object.entries(japaneseNumbers)) {
-      if (lowerText.includes(key)) {
+    let processedText = text.toLowerCase();
+
+    // カタカナをひらがなに変換して統一
+    processedText = processedText
+      .replace(/ゼロ/g, 'ぜろ')
+      .replace(/イチ/g, 'いち')
+      .replace(/ニ/g, 'に')
+      .replace(/サン/g, 'さん')
+      .replace(/シ/g, 'し')
+      .replace(/ヨン/g, 'よん')
+      .replace(/ゴ/g, 'ご')
+      .replace(/ロク/g, 'ろく')
+      .replace(/シチ/g, 'しち')
+      .replace(/ナナ/g, 'なな')
+      .replace(/ハチ/g, 'はち')
+      .replace(/キュウ/g, 'きゅう')
+      .replace(/ク/g, 'く')
+      .replace(/ジュウ/g, 'じゅう')
+      .replace(/ヒャク/g, 'ひゃく')
+      .replace(/セン/g, 'せん')
+      .replace(/マン/g, 'まん');
+
+    // 複雑な数字の変換（例：二十三、百五、千二百三十四）
+    let result = 0;
+
+    // 万の位の処理
+    const manMatch = processedText.match(/(.+)(まん|万)(.*)$/);
+    if (manMatch) {
+      const beforeMan = manMatch[1];
+      const afterMan = manMatch[3];
+
+      // 万の前の部分を処理
+      result += parseJapaneseNumberPart(beforeMan, kanjiToNum, unitToMultiplier) * 10000;
+
+      // 万の後の部分を処理
+      if (afterMan) {
+        result += parseJapaneseNumberPart(afterMan, kanjiToNum, unitToMultiplier);
+      }
+
+      return result.toString();
+    }
+
+    // 万がない場合は通常の処理
+    const parsed = parseJapaneseNumberPart(processedText, kanjiToNum, unitToMultiplier);
+    if (parsed > 0) {
+      return parsed.toString();
+    }
+
+    // 単純なマッチング（後方互換）
+    for (const [key, value] of Object.entries(kanjiToNum)) {
+      if (processedText.includes(key.toLowerCase())) {
+        return value.toString();
+      }
+    }
+
+    return text;
+  };
+
+  // 日本語数字の部分的なパース（千、百、十の位まで）
+  const parseJapaneseNumberPart = (
+    text: string,
+    kanjiToNum: { [key: string]: number },
+    unitToMultiplier: { [key: string]: number }
+  ): number => {
+    let result = 0;
+
+    // 千の位
+    const senMatch = text.match(/(.+)?(せん|千)(.*)$/);
+    if (senMatch) {
+      const beforeSen = senMatch[1];
+      const afterSen = senMatch[3];
+
+      if (beforeSen) {
+        const num = getBasicNumber(beforeSen, kanjiToNum);
+        result += num * 1000;
+      } else {
+        result += 1000;
+      }
+
+      if (afterSen) {
+        result += parseJapaneseNumberPart(afterSen, kanjiToNum, unitToMultiplier);
+      }
+
+      return result;
+    }
+
+    // 百の位
+    const hyakuMatch = text.match(/(.+)?(ひゃく|百)(.*)$/);
+    if (hyakuMatch) {
+      const beforeHyaku = hyakuMatch[1];
+      const afterHyaku = hyakuMatch[3];
+
+      if (beforeHyaku) {
+        const num = getBasicNumber(beforeHyaku, kanjiToNum);
+        result += num * 100;
+      } else {
+        result += 100;
+      }
+
+      if (afterHyaku) {
+        result += parseJapaneseNumberPart(afterHyaku, kanjiToNum, unitToMultiplier);
+      }
+
+      return result;
+    }
+
+    // 十の位
+    const juMatch = text.match(/(.+)?(じゅう|十)(.*)$/);
+    if (juMatch) {
+      const beforeJu = juMatch[1];
+      const afterJu = juMatch[3];
+
+      if (beforeJu) {
+        const num = getBasicNumber(beforeJu, kanjiToNum);
+        result += num * 10;
+      } else {
+        result += 10;
+      }
+
+      if (afterJu) {
+        result += getBasicNumber(afterJu, kanjiToNum);
+      }
+
+      return result;
+    }
+
+    // 一桁の数字
+    return getBasicNumber(text, kanjiToNum);
+  };
+
+  // 基本的な数字（0-9）の取得
+  const getBasicNumber = (text: string, kanjiToNum: { [key: string]: number }): number => {
+    const lowerText = text.toLowerCase().trim();
+
+    for (const [key, value] of Object.entries(kanjiToNum)) {
+      if (lowerText.includes(key.toLowerCase())) {
         return value;
       }
     }
 
-    // 複数桁の日本語数字の処理（例：二十三 → 23）
-    const tenMatch = lowerText.match(/(.*)(じゅう|十)(.*)/);
-    if (tenMatch) {
-      const tens = tenMatch[1] ? japaneseNumbers[tenMatch[1]] || "1" : "1";
-      const ones = tenMatch[3] ? japaneseNumbers[tenMatch[3]] || "0" : "0";
-      return (parseInt(tens) * 10 + parseInt(ones)).toString();
-    }
-
-    return text;
+    return 0;
   };
 
   const startListening = async () => {
@@ -117,21 +242,76 @@ export default function VoiceNumberRecognition() {
       const options = {
         lang: "ja-JP",
         interimResults: true,
-        maxAlternatives: 1,
-        continuous: false,
+        maxAlternatives: 5,
+        continuous: true,
         requiresOnDeviceRecognition: false,
         addsPunctuation: false,
         contextualStrings: [
+          // 0-9 ひらがな
+          "ぜろ", "れい",
           "いち",
           "に",
           "さん",
-          "し",
+          "し", "よん",
           "ご",
           "ろく",
-          "しち",
+          "しち", "なな",
           "はち",
-          "きゅう",
-          "じゅう",
+          "きゅう", "く",
+          // 0-9 カタカナ
+          "ゼロ", "レイ",
+          "イチ",
+          "ニ",
+          "サン",
+          "シ", "ヨン",
+          "ゴ",
+          "ロク",
+          "シチ", "ナナ",
+          "ハチ",
+          "キュウ", "ク",
+          // 10-19
+          "じゅう", "十",
+          "じゅういち", "十一",
+          "じゅうに", "十二",
+          "じゅうさん", "十三",
+          "じゅうし", "じゅうよん", "十四",
+          "じゅうご", "十五",
+          "じゅうろく", "十六",
+          "じゅうしち", "じゅうなな", "十七",
+          "じゅうはち", "十八",
+          "じゅうきゅう", "じゅうく", "十九",
+          // 20-90 (10の倍数)
+          "にじゅう", "二十",
+          "さんじゅう", "三十",
+          "よんじゅう", "四十",
+          "ごじゅう", "五十",
+          "ろくじゅう", "六十",
+          "ななじゅう", "しちじゅう", "七十",
+          "はちじゅう", "八十",
+          "きゅうじゅう", "九十",
+          // 100-900 (100の倍数)
+          "ひゃく", "百",
+          "にひゃく", "二百",
+          "さんびゃく", "三百",
+          "よんひゃく", "四百",
+          "ごひゃく", "五百",
+          "ろっぴゃく", "六百",
+          "ななひゃく", "七百",
+          "はっぴゃく", "八百",
+          "きゅうひゃく", "九百",
+          // 1000-9000 (1000の倍数)
+          "せん", "千",
+          "にせん", "二千",
+          "さんぜん", "三千",
+          "よんせん", "四千",
+          "ごせん", "五千",
+          "ろくせん", "六千",
+          "ななせん", "七千",
+          "はっせん", "八千",
+          "きゅうせん", "九千",
+          // 万
+          "まん", "万",
+          "いちまん", "一万",
         ],
         ...(Platform.OS === "android" && {
           recordingOptions: {
@@ -168,6 +348,7 @@ export default function VoiceNumberRecognition() {
   const clearResults = () => {
     setRecognizedNumber("");
     setRecognizedText("");
+    setInterimText("");
     setError("");
   };
 
@@ -177,9 +358,21 @@ export default function VoiceNumberRecognition() {
 
       <View style={styles.statusContainer}>
         {isListening && (
-          <Text style={styles.listeningText}>🎤 聞き取り中...</Text>
+          <>
+            <Text style={styles.listeningText}>🎤 聞き取り中...</Text>
+            <Text style={styles.hintText}>
+              ゆっくり、はっきりと発音してください
+            </Text>
+          </>
         )}
       </View>
+
+      {interimText && (
+        <View style={styles.interimContainer}>
+          <Text style={styles.interimLabel}>認識中:</Text>
+          <Text style={styles.interimText}>{interimText}</Text>
+        </View>
+      )}
 
       {recognizedText && (
         <View style={styles.resultContainer}>
@@ -219,8 +412,13 @@ export default function VoiceNumberRecognition() {
 
       <View style={styles.infoContainer}>
         <Text style={styles.infoText}>
-          例: 「いち」「に」「さん」{"\n"}
-          「10」「じゅう」「20」など
+          💡 認識のコツ:{"\n"}
+          • ゆっくり、はっきりと発音する{"\n"}
+          • 1文字（に、し、く等）は認識されにくいため、{"\n"}
+          　「いち」「さん」「ろく」など長い読み方を推奨{"\n"}
+          • 複数桁も可: 「にじゅうさん」「ひゃくごじゅう」{"\n"}
+          {"\n"}
+          対応範囲: 0〜99999
         </Text>
       </View>
     </View>
@@ -242,7 +440,7 @@ const styles = StyleSheet.create({
     color: "#333",
   },
   statusContainer: {
-    height: 40,
+    minHeight: 60,
     justifyContent: "center",
     alignItems: "center",
     marginBottom: 20,
@@ -251,6 +449,32 @@ const styles = StyleSheet.create({
     fontSize: 18,
     color: "#4CAF50",
     fontWeight: "600",
+  },
+  hintText: {
+    fontSize: 12,
+    color: "#666",
+    marginTop: 8,
+    textAlign: "center",
+  },
+  interimContainer: {
+    backgroundColor: "#fff3e0",
+    padding: 15,
+    borderRadius: 8,
+    marginVertical: 10,
+    width: "100%",
+    alignItems: "center",
+    borderWidth: 1,
+    borderColor: "#ffb74d",
+  },
+  interimLabel: {
+    fontSize: 12,
+    color: "#f57c00",
+    marginBottom: 5,
+  },
+  interimText: {
+    fontSize: 16,
+    color: "#e65100",
+    fontStyle: "italic",
   },
   resultContainer: {
     backgroundColor: "#fff",
@@ -309,7 +533,7 @@ const styles = StyleSheet.create({
   infoText: {
     fontSize: 12,
     color: "#1976d2",
-    textAlign: "center",
-    lineHeight: 18,
+    textAlign: "left",
+    lineHeight: 20,
   },
 });
