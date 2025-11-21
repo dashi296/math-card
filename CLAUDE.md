@@ -11,6 +11,7 @@ Math Card is a React Native mobile application built with Expo that provides voi
 - **Framework**: Expo 54 with React Native 0.81.5
 - **Router**: Expo Router 6 (file-based routing)
 - **Language**: TypeScript with strict mode
+- **Linter & Formatter**: Biome (fast, modern alternative to ESLint and Prettier)
 - **Navigation**: React Navigation 7 with bottom tabs
 - **Voice Recognition**: expo-speech-recognition (Expo official package)
 - **New Architecture**: Enabled (React Native's new architecture)
@@ -31,8 +32,14 @@ npm run android
 # Run on web
 npm run web
 
-# Lint code
+# Lint code (with Biome)
 npm run lint
+
+# Auto-fix lint errors
+npm run lint:fix
+
+# Format code
+npm run format
 
 # Reset project (removes example code)
 npm run reset-project

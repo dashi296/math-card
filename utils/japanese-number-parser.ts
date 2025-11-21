@@ -65,10 +65,7 @@ const unitToMultiplier: { [key: string]: number } = {
 /**
  * 基本的な数字（0-9）の取得
  */
-function getBasicNumber(
-  text: string,
-  kanjiMap: { [key: string]: number }
-): number {
+function getBasicNumber(text: string, kanjiMap: { [key: string]: number }): number {
   const lowerText = text.toLowerCase().trim();
 
   for (const [key, value] of Object.entries(kanjiMap)) {
@@ -168,23 +165,23 @@ export function extractNumber(text: string): string {
 
   // カタカナをひらがなに変換して統一
   processedText = processedText
-    .replace(/ゼロ/g, "ぜろ")
-    .replace(/イチ/g, "いち")
-    .replace(/ニ/g, "に")
-    .replace(/サン/g, "さん")
-    .replace(/シ/g, "し")
-    .replace(/ヨン/g, "よん")
-    .replace(/ゴ/g, "ご")
-    .replace(/ロク/g, "ろく")
-    .replace(/シチ/g, "しち")
-    .replace(/ナナ/g, "なな")
-    .replace(/ハチ/g, "はち")
-    .replace(/キュウ/g, "きゅう")
-    .replace(/ク/g, "く")
-    .replace(/ジュウ/g, "じゅう")
-    .replace(/ヒャク/g, "ひゃく")
-    .replace(/セン/g, "せん")
-    .replace(/マン/g, "まん");
+    .replace(/ゼロ/g, 'ぜろ')
+    .replace(/イチ/g, 'いち')
+    .replace(/ニ/g, 'に')
+    .replace(/サン/g, 'さん')
+    .replace(/シ/g, 'し')
+    .replace(/ヨン/g, 'よん')
+    .replace(/ゴ/g, 'ご')
+    .replace(/ロク/g, 'ろく')
+    .replace(/シチ/g, 'しち')
+    .replace(/ナナ/g, 'なな')
+    .replace(/ハチ/g, 'はち')
+    .replace(/キュウ/g, 'きゅう')
+    .replace(/ク/g, 'く')
+    .replace(/ジュウ/g, 'じゅう')
+    .replace(/ヒャク/g, 'ひゃく')
+    .replace(/セン/g, 'せん')
+    .replace(/マン/g, 'まん');
 
   // 複雑な数字の変換（例：二十三、百五、千二百三十四）
   let result = 0;
@@ -196,27 +193,18 @@ export function extractNumber(text: string): string {
     const afterMan = manMatch[3];
 
     // 万の前の部分を処理
-    result +=
-      parseJapaneseNumberPart(beforeMan, kanjiToNum, unitToMultiplier) * 10000;
+    result += parseJapaneseNumberPart(beforeMan, kanjiToNum, unitToMultiplier) * 10000;
 
     // 万の後の部分を処理
     if (afterMan) {
-      result += parseJapaneseNumberPart(
-        afterMan,
-        kanjiToNum,
-        unitToMultiplier
-      );
+      result += parseJapaneseNumberPart(afterMan, kanjiToNum, unitToMultiplier);
     }
 
     return result.toString();
   }
 
   // 万がない場合は通常の処理
-  const parsed = parseJapaneseNumberPart(
-    processedText,
-    kanjiToNum,
-    unitToMultiplier
-  );
+  const parsed = parseJapaneseNumberPart(processedText, kanjiToNum, unitToMultiplier);
   if (parsed > 0) {
     return parsed.toString();
   }
@@ -240,65 +228,65 @@ export function scoreNumberCandidate(text: string): number {
 
   // 数字キーワードが含まれているかチェック
   const numberKeywords = [
-    "ぜろ",
-    "れい",
-    "いち",
-    "に",
-    "さん",
-    "し",
-    "よん",
-    "ご",
-    "ろく",
-    "しち",
-    "なな",
-    "はち",
-    "きゅう",
-    "く",
-    "じゅう",
-    "ひゃく",
-    "せん",
-    "まん",
-    "ゼロ",
-    "レイ",
-    "イチ",
-    "ニ",
-    "サン",
-    "シ",
-    "ヨン",
-    "ゴ",
-    "ロク",
-    "シチ",
-    "ナナ",
-    "ハチ",
-    "キュウ",
-    "ク",
-    "ジュウ",
-    "ヒャク",
-    "セン",
-    "マン",
-    "一",
-    "二",
-    "三",
-    "四",
-    "五",
-    "六",
-    "七",
-    "八",
-    "九",
-    "十",
-    "百",
-    "千",
-    "万",
-    "0",
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
+    'ぜろ',
+    'れい',
+    'いち',
+    'に',
+    'さん',
+    'し',
+    'よん',
+    'ご',
+    'ろく',
+    'しち',
+    'なな',
+    'はち',
+    'きゅう',
+    'く',
+    'じゅう',
+    'ひゃく',
+    'せん',
+    'まん',
+    'ゼロ',
+    'レイ',
+    'イチ',
+    'ニ',
+    'サン',
+    'シ',
+    'ヨン',
+    'ゴ',
+    'ロク',
+    'シチ',
+    'ナナ',
+    'ハチ',
+    'キュウ',
+    'ク',
+    'ジュウ',
+    'ヒャク',
+    'セン',
+    'マン',
+    '一',
+    '二',
+    '三',
+    '四',
+    '五',
+    '六',
+    '七',
+    '八',
+    '九',
+    '十',
+    '百',
+    '千',
+    '万',
+    '0',
+    '1',
+    '2',
+    '3',
+    '4',
+    '5',
+    '6',
+    '7',
+    '8',
+    '9',
   ];
 
   // 数字キーワードの出現回数をスコアに加算
@@ -325,17 +313,7 @@ export function scoreNumberCandidate(text: string): number {
   }
 
   // 余計な単語が含まれている場合は減点
-  const noiseWords = [
-    "です",
-    "ます",
-    "でした",
-    "ました",
-    "は",
-    "が",
-    "を",
-    "の",
-    "と",
-  ];
+  const noiseWords = ['です', 'ます', 'でした', 'ました', 'は', 'が', 'を', 'の', 'と'];
   noiseWords.forEach((word) => {
     if (lowerText.includes(word)) {
       score -= 15;
