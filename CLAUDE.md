@@ -50,17 +50,32 @@ npm run reset-project
 Routes are generated automatically from the file structure. Typed routes are enabled for type-safe navigation.
 
 ### Components
-- `components/voice-number-recognition.tsx` - Main voice recognition component
-  - Handles Japanese voice input using expo-speech-recognition
-  - Converts Japanese number words to digits (e.g., "いち" → "1", "じゅう" → "10")
-  - Supports both hiragana/katakana and kanji number inputs
-  - Uses `useSpeechRecognitionEvent` hooks for event handling (start, end, result, error)
+- `components/voice-number-recognition.tsx` - Main voice recognition component (UI only)
+  - Displays voice recognition interface and results
+  - Uses `useVoiceNumberRecognition` custom hook for logic
+  - Supports continuous recognition mode for rapid input
+  - Shows interim results for real-time feedback
 - `components/themed-*.tsx` - Theme-aware UI components
 - `components/ui/` - Reusable UI components (IconSymbol, Collapsible)
 - `components/haptic-tab.tsx` - Tab with haptic feedback
 
+### Hooks
+- `hooks/use-voice-number-recognition.ts` - Custom hook for voice-based number recognition
+  - Handles Japanese voice input using expo-speech-recognition
+  - Implements best-match selection from multiple recognition candidates
+  - Auto-restart mode for continuous recognition
+  - Returns: isListening, recognizedNumber, recognizedText, interimText, error, autoRestart, startListening, stopListening, clearResults, setAutoRestart
+- `hooks/use-color-scheme.ts` - Color scheme hook for theme support
+- `hooks/use-theme-color.ts` - Theme color hook
+
+### Utils
+- `utils/japanese-number-parser.ts` - Japanese number parsing utilities
+  - `extractNumber(text: string): string` - Converts Japanese number words to digits
+  - `scoreNumberCandidate(text: string): number` - Scores how likely a candidate is a number
+  - Supports hiragana, katakana, and kanji (e.g., "いち" → "1", "じゅう" → "10", "二十三" → "23")
+  - Handles numbers from 0 to 99999
+
 ### Other Directories
-- `hooks/` - Custom React hooks (color scheme, theme color)
 - `constants/` - Theme constants and app-wide constants
 - `assets/` - Images, fonts, and other static assets
 
@@ -85,14 +100,42 @@ The project uses `@/*` as an alias for the root directory:
 import { VoiceNumberRecognition } from '@/components/voice-number-recognition';
 ```
 
-## Voice Recognition Implementation
+## Voice Recognition Architecture
 
-The voice recognition feature (components/voice-number-recognition.tsx) requires understanding of:
-- expo-speech-recognition module with `ExpoSpeechRecognitionModule.start()` and `.stop()` methods
-- `useSpeechRecognitionEvent` hooks for event handling (start, end, result, error)
-- Japanese number conversion logic (handles multiple formats: kanji, hiragana, katakana, and multi-digit numbers)
-- Recognition options: lang, interimResults, maxAlternatives, continuous, contextualStrings
-- Android-specific recording options with AudioEncodingAndroid
+The voice recognition feature is architected with separation of concerns:
+
+### Custom Hook (hooks/use-voice-number-recognition.ts)
+- Manages voice recognition state and lifecycle
+- Handles expo-speech-recognition events (start, end, result, error)
+- Implements best-match selection algorithm:
+  - Receives multiple candidates via `maxAlternatives: 5`
+  - Scores each candidate based on number-related keywords
+  - Automatically selects the most likely number
+- Supports continuous mode for rapid input
+- Configuration:
+  - lang: "ja-JP"
+  - interimResults: true (real-time feedback)
+  - maxAlternatives: 5 (for best-match selection)
+  - continuous: true (better short pronunciation recognition)
+  - contextualStrings: extensive list of Japanese numbers
+  - iOS optimization: iosTaskHint: "dictation"
+
+### Utility (utils/japanese-number-parser.ts)
+- Pure functions for Japanese number parsing
+- Handles complex multi-digit numbers (e.g., "二千三百四十五" → "2345")
+- Supports multiple formats: hiragana, katakana, kanji, Arabic numerals
+- Scoring system for candidate selection:
+  - Number keywords: +10 points each
+  - Convertible to number: +50 points
+  - Contains Arabic numerals: +30 points
+  - Single character (non-numeric): -20 points
+  - Noise words (です, は, etc.): -15 points each
+
+### Component (components/voice-number-recognition.tsx)
+- Presentation layer only
+- Displays recognition status, interim results, and final results
+- Provides user controls (start, stop, continuous mode, clear)
+- No business logic - delegates to custom hook
 
 ## Theme System
 
