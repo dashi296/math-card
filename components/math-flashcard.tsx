@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
 import { useMathFlashcard } from '@/hooks/use-math-flashcard';
 import { useVoiceNumberRecognition } from '@/hooks/use-voice-number-recognition';
@@ -13,6 +13,7 @@ export default function MathFlashcard() {
     checkAnswer,
     nextProblem,
     resetStats,
+    resetFeedback,
   } = useMathFlashcard(20);
 
   const {
@@ -30,6 +31,9 @@ export default function MathFlashcard() {
   const lastCheckedNumberRef = useRef<string | null>(null);
   const checkAnswerCallCountRef = useRef(0);
 
+  // Track if user has started (first manual start)
+  const [hasStarted, setHasStarted] = useState(false);
+
   // Debug: Track showFeedback changes in component
   useEffect(() => {
     console.log('[MathFlashcard Component] showFeedback changed to:', showFeedback);
@@ -38,17 +42,47 @@ export default function MathFlashcard() {
   // Auto-advance to next problem if answer is correct
   useEffect(() => {
     if (showFeedback && isCorrect) {
-      console.log('[Auto-advance] Correct answer! Auto-advancing in 2 seconds...');
+      console.log('[Auto-advance] Correct answer! Clearing results and moving to next problem');
+
+      // Clear the recognized number
+      clearResults();
+
+      // Wait a bit for clearResults to take effect before generating next problem
       const timer = setTimeout(() => {
-        console.log('[Auto-advance] Moving to next problem');
-        clearResults();
-        lastCheckedNumberRef.current = null;
+        console.log('[Auto-advance] Now generating next problem');
+        // Note: lastCheckedNumberRef is already set in auto-check effect
+        // We'll reset it to null in auto-start effect
         nextProblem();
-      }, 2000); // Wait 2 seconds to show feedback
+      }, 100); // Small delay to ensure clearResults takes effect
 
       return () => clearTimeout(timer);
     }
   }, [showFeedback, isCorrect, clearResults, nextProblem]);
+
+  // Auto-start voice recognition when a new problem is shown (only after initial start)
+  useEffect(() => {
+    if (hasStarted && problem && !showFeedback && !isListening) {
+      console.log('[Auto-start] Starting voice recognition automatically');
+      console.log('[Auto-start] recognizedNumber:', recognizedNumber);
+      console.log('[Auto-start] lastCheckedNumberRef.current:', lastCheckedNumberRef.current);
+
+      // Only reset ref if recognizedNumber has been cleared
+      // This prevents old answers from being re-checked
+      if (!recognizedNumber) {
+        console.log('[Auto-start] Resetting lastCheckedNumberRef to null');
+        lastCheckedNumberRef.current = null;
+      } else {
+        console.log('[Auto-start] NOT resetting ref because recognizedNumber still exists');
+      }
+
+      // Small delay to ensure UI is ready
+      const timer = setTimeout(() => {
+        startListening();
+      }, 500);
+
+      return () => clearTimeout(timer);
+    }
+  }, [hasStarted, problem, showFeedback, isListening, recognizedNumber, startListening]);
 
   // Auto-check answer when a number is recognized
   useEffect(() => {
@@ -76,12 +110,15 @@ export default function MathFlashcard() {
       console.log('  Parsed answer:', answer, 'isNaN:', Number.isNaN(answer));
 
       if (!Number.isNaN(answer)) {
+        console.log('  ✓ Stopping listening FIRST to prevent continuous recognition');
+        // Stop listening BEFORE checking answer to prevent next utterance from being appended
+        stopListening();
+
         console.log('  ✓ Calling checkAnswer with:', answer);
         lastCheckedNumberRef.current = recognizedNumber;
         checkAnswerCallCountRef.current += 1;
         checkAnswer(answer);
         console.log('  ✓ After checkAnswer call');
-        stopListening();
       } else {
         console.log('  ✗ Answer is NaN, skipping');
       }
@@ -91,18 +128,26 @@ export default function MathFlashcard() {
     console.log('=== useEffect end ===');
   }, [recognizedNumber, showFeedback, checkAnswer, stopListening]);
 
-  const handleNextProblem = () => {
-    clearResults();
-    lastCheckedNumberRef.current = null;
-    nextProblem();
+  const handleStart = () => {
+    console.log('[Start] User started the session');
+    setHasStarted(true);
+    startListening();
   };
 
   const handleRetry = () => {
+    console.log('[Retry] User retrying the same problem');
     clearResults();
     lastCheckedNumberRef.current = null;
-    if (!isListening) {
-      startListening();
-    }
+    resetFeedback(); // Reset feedback to allow another attempt
+    // Audio will auto-start via useEffect
+  };
+
+  const handleResetStats = () => {
+    console.log('[Reset] Resetting stats and going back to start');
+    resetStats();
+    setHasStarted(false);
+    clearResults();
+    lastCheckedNumberRef.current = null;
   };
 
   // Test function to directly call checkAnswer
@@ -183,7 +228,6 @@ export default function MathFlashcard() {
             {'\n'}
             正解: {problem.answer}
           </Text>
-          {isCorrect && <Text style={styles.autoAdvanceText}>2秒後に次の問題に進みます...</Text>}
         </View>
       )}
 
@@ -206,26 +250,35 @@ export default function MathFlashcard() {
       {/* Action Buttons */}
       <View style={styles.buttonContainer}>
         <Text style={{ fontSize: 10, color: '#f00', marginBottom: 10, width: '100%' }}>
-          Button mode: {!showFeedback ? 'VOICE INPUT' : isCorrect ? 'AUTO ADVANCE' : 'NEXT PROBLEM'}
+          Status:{' '}
+          {!hasStarted
+            ? 'READY TO START'
+            : !showFeedback
+              ? 'LISTENING'
+              : isCorrect
+                ? 'CORRECT - AUTO ADVANCE'
+                : 'INCORRECT - RETRY'}
         </Text>
-        {!showFeedback ? (
+        {!hasStarted ? (
+          <View style={styles.button}>
+            <Button title="🎤 開始する" onPress={handleStart} color="#4CAF50" />
+          </View>
+        ) : !showFeedback ? (
           <>
-            <View style={styles.button}>
-              <Button
-                title={isListening ? '停止' : '🎤 音声で回答'}
-                onPress={isListening ? stopListening : startListening}
-                color={isListening ? '#f44336' : '#4CAF50'}
-              />
-            </View>
-            {recognizedNumber && (
+            {isListening && (
               <View style={styles.button}>
-                <Button title="再試行" onPress={handleRetry} color="#FF9800" />
+                <Button title="⏸ 一時停止" onPress={stopListening} color="#f44336" />
+              </View>
+            )}
+            {!isListening && recognizedNumber && (
+              <View style={styles.button}>
+                <Button title="🎤 再認識" onPress={handleRetry} color="#FF9800" />
               </View>
             )}
           </>
         ) : !isCorrect ? (
           <View style={styles.button}>
-            <Button title="次の問題 →" onPress={handleNextProblem} color="#2196F3" />
+            <Button title="🔄 もう一度挑戦" onPress={handleRetry} color="#FF9800" />
           </View>
         ) : null}
       </View>
@@ -233,16 +286,20 @@ export default function MathFlashcard() {
       {/* Reset Button */}
       {stats.total > 0 && (
         <View style={styles.resetContainer}>
-          <Button title="スコアをリセット" onPress={resetStats} color="#757575" />
+          <Button title="最初からやり直す" onPress={handleResetStats} color="#757575" />
         </View>
       )}
 
       {/* Instructions */}
       <View style={styles.infoContainer}>
         <Text style={styles.infoText}>
-          💡 使い方:{'\n'}1. 「音声で回答」ボタンを押す{'\n'}2.
-          計算の答えを声で言う（例：「じゅうご」）{'\n'}3. 自動で採点されます
-          {'\n'}4. 正解なら自動で次の問題へ、不正解なら手動で進む
+          💡 使い方:{'\n'}
+          1. 「開始する」ボタンを押す{'\n'}
+          2. 計算の答えを声で言う（例：「じゅうご」）{'\n'}
+          3. 自動で採点されます{'\n'}
+          4. 正解 → すぐに次の問題へ自動で進む{'\n'}
+          5. 不正解 → 正解するまで同じ問題を繰り返す{'\n'}
+          {'\n'}※ 正解すれば自動で次々と問題が進みます
         </Text>
       </View>
     </View>
@@ -380,13 +437,6 @@ const styles = StyleSheet.create({
     color: '#666',
     textAlign: 'center',
     lineHeight: 24,
-  },
-  autoAdvanceText: {
-    fontSize: 14,
-    color: '#4CAF50',
-    fontWeight: '600',
-    marginTop: 15,
-    textAlign: 'center',
   },
   errorContainer: {
     backgroundColor: '#ffebee',

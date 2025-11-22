@@ -93,6 +93,14 @@ export function useMathFlashcard(maxNumber = 20) {
     generateProblem();
   }, [generateProblem]);
 
+  // Reset feedback to retry the same problem
+  const resetFeedback = useCallback(() => {
+    console.log('[resetFeedback] Clearing feedback to retry');
+    setUserAnswer(null);
+    setIsCorrect(null);
+    setShowFeedback(false);
+  }, []);
+
   return {
     problem,
     userAnswer,
@@ -102,6 +110,7 @@ export function useMathFlashcard(maxNumber = 20) {
     checkAnswer,
     nextProblem,
     resetStats,
+    resetFeedback,
     generateProblem,
   };
 }
