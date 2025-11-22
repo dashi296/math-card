@@ -4,7 +4,14 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Math Card is a React Native mobile application built with Expo that provides voice-based number recognition in Japanese. The app allows users to speak numbers in Japanese and converts them to numerical digits.
+Math Card is a React Native mobile application built with Expo that provides an interactive math learning experience using voice recognition. The app allows users to practice addition problems by speaking their answers in Japanese, with automatic scoring and feedback.
+
+### Key Features
+- **Voice-Powered Addition Practice**: Random addition problems (1-20 range) with voice input for answers
+- **Real-Time Feedback**: Immediate visual feedback for correct/incorrect answers
+- **Progress Tracking**: Displays statistics including correct answers, incorrect answers, and accuracy percentage
+- **Japanese Voice Recognition**: Converts spoken Japanese numbers to digits using expo-speech-recognition
+- **Smart Recognition**: Uses best-match algorithm to select the most likely number from multiple candidates
 
 ## Technology Stack
 
@@ -50,14 +57,20 @@ npm run reset-project
 ### File-Based Routing (Expo Router)
 - `app/_layout.tsx` - Root layout with theme provider and Stack navigator
 - `app/(tabs)/_layout.tsx` - Tab layout with Home and Explore tabs
-- `app/(tabs)/index.tsx` - Home screen with voice recognition feature
+- `app/(tabs)/index.tsx` - Home screen with math flashcard feature
 - `app/(tabs)/explore.tsx` - Explore screen
 - `app/modal.tsx` - Modal screen example
 
 Routes are generated automatically from the file structure. Typed routes are enabled for type-safe navigation.
 
 ### Components
-- `components/voice-number-recognition.tsx` - Main voice recognition component (UI only)
+- `components/math-flashcard.tsx` - Main math flashcard component (addition practice with voice recognition)
+  - Displays random addition problems (1-20 range)
+  - Accepts voice input for answers using `useVoiceNumberRecognition` hook
+  - Provides immediate feedback (correct/incorrect)
+  - Tracks statistics (correct, incorrect, accuracy percentage)
+  - Auto-advances to next problem after feedback
+- `components/voice-number-recognition.tsx` - Standalone voice recognition component (UI only)
   - Displays voice recognition interface and results
   - Uses `useVoiceNumberRecognition` custom hook for logic
   - Supports continuous recognition mode for rapid input
@@ -67,6 +80,11 @@ Routes are generated automatically from the file structure. Typed routes are ena
 - `components/haptic-tab.tsx` - Tab with haptic feedback
 
 ### Hooks
+- `hooks/use-math-flashcard.ts` - Custom hook for math flashcard logic
+  - Generates random addition problems
+  - Manages user answers and correctness state
+  - Tracks statistics (correct, incorrect, total, accuracy)
+  - Returns: problem, userAnswer, isCorrect, stats, showFeedback, checkAnswer, nextProblem, resetStats
 - `hooks/use-voice-number-recognition.ts` - Custom hook for voice-based number recognition
   - Handles Japanese voice input using expo-speech-recognition
   - Implements best-match selection from multiple recognition candidates

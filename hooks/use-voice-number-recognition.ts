@@ -3,7 +3,7 @@ import {
   type ExpoSpeechRecognitionOptions,
   useSpeechRecognitionEvent,
 } from 'expo-speech-recognition';
-import { useState } from 'react';
+import { useCallback, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { extractNumber, scoreNumberCandidate } from '@/utils/japanese-number-parser';
 
@@ -85,15 +85,18 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
 
   // 音声認識開始イベント
   useSpeechRecognitionEvent('start', () => {
+    console.log('[Voice Recognition] Start event - Recognition started');
     setIsListening(true);
     setError('');
   });
 
   // 音声認識終了イベント
   useSpeechRecognitionEvent('end', () => {
+    console.log('[Voice Recognition] End event - Recognition stopped');
     setIsListening(false);
     // 自動再開モードの場合、すぐに次の認識を開始
     if (autoRestart) {
+      console.log('[Voice Recognition] Auto-restart enabled, restarting...');
       setTimeout(() => {
         startListening();
       }, 500);
@@ -102,20 +105,28 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
 
   // 音声認識結果イベント
   useSpeechRecognitionEvent('result', (event) => {
+    console.log('[Voice Recognition] Result event received');
     const results = event.results;
+    console.log('[Voice Recognition] Results:', JSON.stringify(results, null, 2));
+
     if (results && results.length > 0) {
       // 複数の候補から最適なものを選択
       const bestMatch = selectBestNumberMatch(results);
+      console.log('[Voice Recognition] Best match:', bestMatch);
 
       if (bestMatch) {
         const { transcript, isFinal } = bestMatch;
+        console.log('[Voice Recognition] Transcript:', transcript, 'isFinal:', isFinal);
 
         // 暫定結果（話している最中）でも即座に数字を抽出
         if (!isFinal) {
           setInterimText(transcript);
           // 暫定結果でも数字が抽出できれば表示
           const number = extractNumber(transcript);
-          if (number && number !== transcript) {
+          console.log('[Voice Recognition] Interim - Extracted number:', number);
+          // 数字が抽出できたら常に設定（transcriptと同じでも）
+          if (number) {
+            console.log('[Voice Recognition] Setting recognizedNumber to:', number);
             setRecognizedNumber(number);
           }
         } else {
@@ -123,6 +134,7 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
           setInterimText('');
           setRecognizedText(transcript);
           const number = extractNumber(transcript);
+          console.log('[Voice Recognition] Final - Extracted number:', number);
           setRecognizedNumber(number);
         }
       }
@@ -131,6 +143,7 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
 
   // 音声認識エラーイベント
   useSpeechRecognitionEvent('error', (event) => {
+    console.log('[Voice Recognition] Error event:', event.error);
     setError(`エラー: ${event.error || '音声認識に失敗しました'}`);
     setIsListening(false);
   });
@@ -138,7 +151,7 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
   /**
    * 音声認識を開始
    */
-  const startListening = async () => {
+  const startListening = useCallback(async () => {
     try {
       setError('');
       setRecognizedNumber('');
@@ -295,12 +308,12 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
       setIsListening(false);
       Alert.alert('エラー', errorMessage);
     }
-  };
+  }, []);
 
   /**
    * 音声認識を停止
    */
-  const stopListening = async () => {
+  const stopListening = useCallback(async () => {
     try {
       setAutoRestart(false); // 停止時は自動再開もオフ
       await ExpoSpeechRecognitionModule.stop();
@@ -310,17 +323,17 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
       setError(errorMessage);
       Alert.alert('エラー', errorMessage);
     }
-  };
+  }, []);
 
   /**
    * 認識結果をクリア
    */
-  const clearResults = () => {
+  const clearResults = useCallback(() => {
     setRecognizedNumber('');
     setRecognizedText('');
     setInterimText('');
     setError('');
-  };
+  }, []);
 
   return {
     // 状態

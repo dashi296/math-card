@@ -1,9 +1,9 @@
 import { Image } from 'expo-image';
 import { StyleSheet } from 'react-native';
+import MathFlashcard from '@/components/math-flashcard';
 import ParallaxScrollView from '@/components/parallax-scroll-view';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import VoiceNumberRecognition from '@/components/voice-number-recognition';
 
 export default function HomeScreen() {
   return (
@@ -17,10 +17,10 @@ export default function HomeScreen() {
       }
     >
       <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">音声数字認識</ThemedText>
+        <ThemedText type="title">音声で計算練習</ThemedText>
       </ThemedView>
-      <ThemedView style={styles.voiceContainer}>
-        <VoiceNumberRecognition />
+      <ThemedView style={styles.flashcardContainer}>
+        <MathFlashcard />
       </ThemedView>
     </ParallaxScrollView>
   );
@@ -34,9 +34,9 @@ const styles = StyleSheet.create({
     gap: 8,
     marginBottom: 20,
   },
-  voiceContainer: {
+  flashcardContainer: {
     flex: 1,
-    minHeight: 500,
+    minHeight: 600,
   },
   reactLogo: {
     height: 178,
