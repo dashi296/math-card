@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
 import { useMathFlashcard } from '@/hooks/use-math-flashcard';
+import { useSoundEffect } from '@/hooks/use-sound-effect';
 import { useVoiceNumberRecognition } from '@/hooks/use-voice-number-recognition';
 
 export default function MathFlashcard() {
@@ -27,6 +28,8 @@ export default function MathFlashcard() {
     clearResults,
   } = useVoiceNumberRecognition();
 
+  const { playCorrectSound, playIncorrectSound } = useSoundEffect();
+
   // Track the last checked number to avoid duplicate checks
   const lastCheckedNumberRef = useRef<string | null>(null);
   const checkAnswerCallCountRef = useRef(0);
@@ -38,6 +41,19 @@ export default function MathFlashcard() {
   useEffect(() => {
     console.log('[MathFlashcard Component] showFeedback changed to:', showFeedback);
   }, [showFeedback]);
+
+  // Play sound effect when answer is checked
+  useEffect(() => {
+    if (showFeedback) {
+      if (isCorrect) {
+        console.log('[Sound] Playing correct sound');
+        playCorrectSound();
+      } else {
+        console.log('[Sound] Playing incorrect sound');
+        playIncorrectSound();
+      }
+    }
+  }, [showFeedback, isCorrect, playCorrectSound, playIncorrectSound]);
 
   // Auto-advance to next problem if answer is correct
   useEffect(() => {
