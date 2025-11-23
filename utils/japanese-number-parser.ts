@@ -40,7 +40,7 @@ const SCORE = {
 } as const;
 
 /** ノイズワード */
-const NOISE_WORDS = ["です", "ます", "でした", "ました", "は", "が", "を", "の", "と"] as const;
+const NOISE_WORDS = ['です', 'ます', 'でした', 'ました', 'は', 'が', 'を', 'の', 'と'] as const;
 
 // ========================================
 // 変換マッピング
@@ -48,23 +48,23 @@ const NOISE_WORDS = ["です", "ます", "でした", "ました", "は", "が",
 
 /** カタカナ→ひらがな変換マッピング（数字関連のみ） */
 const katakanaToHiragana: Record<string, string> = {
-  ゼロ: "ぜろ",
-  イチ: "いち",
-  ニ: "に",
-  サン: "さん",
-  シ: "し",
-  ヨン: "よん",
-  ゴ: "ご",
-  ロク: "ろく",
-  シチ: "しち",
-  ナナ: "なな",
-  ハチ: "はち",
-  キュウ: "きゅう",
-  ク: "く",
-  ジュウ: "じゅう",
-  ヒャク: "ひゃく",
-  セン: "せん",
-  マン: "まん",
+  ゼロ: 'ぜろ',
+  イチ: 'いち',
+  ニ: 'に',
+  サン: 'さん',
+  シ: 'し',
+  ヨン: 'よん',
+  ゴ: 'ご',
+  ロク: 'ろく',
+  シチ: 'しち',
+  ナナ: 'なな',
+  ハチ: 'はち',
+  キュウ: 'きゅう',
+  ク: 'く',
+  ジュウ: 'じゅう',
+  ヒャク: 'ひゃく',
+  セン: 'せん',
+  マン: 'まん',
 };
 
 /**
@@ -77,48 +77,48 @@ const katakanaToHiragana: Record<string, string> = {
  */
 const phoneticSimilarity: PhoneticMap = {
   // いち系
-  いち: ["いっ", "い", "いち", "いっち"],
-  イチ: ["イッ", "イ", "イチ", "イッチ"],
+  いち: ['いっ', 'い', 'いち', 'いっち'],
+  イチ: ['イッ', 'イ', 'イチ', 'イッチ'],
   // に系
-  に: ["に", "にい", "にー"],
-  ニ: ["ニ", "ニー"],
+  に: ['に', 'にい', 'にー'],
+  ニ: ['ニ', 'ニー'],
   // さん系
-  さん: ["さん", "さ", "さーん", "さあん"],
-  サン: ["サン", "サ", "サーン"],
+  さん: ['さん', 'さ', 'さーん', 'さあん'],
+  サン: ['サン', 'サ', 'サーン'],
   // し/よん系
-  し: ["し", "しー", "しぃ"],
-  よん: ["よん", "よ", "よーん", "よおん"],
-  ヨン: ["ヨン", "ヨ", "ヨーン"],
+  し: ['し', 'しー', 'しぃ'],
+  よん: ['よん', 'よ', 'よーん', 'よおん'],
+  ヨン: ['ヨン', 'ヨ', 'ヨーン'],
   // ご系
-  ご: ["ご", "ごー", "ごお"],
-  ゴ: ["ゴ", "ゴー"],
+  ご: ['ご', 'ごー', 'ごお'],
+  ゴ: ['ゴ', 'ゴー'],
   // ろく系
-  ろく: ["ろく", "ろ", "ろっ", "ろーく"],
-  ロク: ["ロク", "ロ", "ロッ", "ローク"],
+  ろく: ['ろく', 'ろ', 'ろっ', 'ろーく'],
+  ロク: ['ロク', 'ロ', 'ロッ', 'ローク'],
   // しち/なな系
-  しち: ["しち", "し", "しっち", "しーち"],
-  なな: ["なな", "な", "なーな", "なあな"],
-  ナナ: ["ナナ", "ナ", "ナーナ"],
+  しち: ['しち', 'し', 'しっち', 'しーち'],
+  なな: ['なな', 'な', 'なーな', 'なあな'],
+  ナナ: ['ナナ', 'ナ', 'ナーナ'],
   // はち系
-  はち: ["はち", "は", "はっ", "はーち", "はっち"],
-  ハチ: ["ハチ", "ハ", "ハッ", "ハーチ"],
+  はち: ['はち', 'は', 'はっ', 'はーち', 'はっち'],
+  ハチ: ['ハチ', 'ハ', 'ハッ', 'ハーチ'],
   // きゅう/く系
-  きゅう: ["きゅう", "きゅ", "きゅー", "きゅうう"],
-  く: ["く", "くー", "くう"],
-  キュウ: ["キュウ", "キュ", "キュー"],
-  ク: ["ク", "クー"],
+  きゅう: ['きゅう', 'きゅ', 'きゅー', 'きゅうう'],
+  く: ['く', 'くー', 'くう'],
+  キュウ: ['キュウ', 'キュ', 'キュー'],
+  ク: ['ク', 'クー'],
   // じゅう系
-  じゅう: ["じゅう", "じゅ", "じゅー", "じゅうう", "じゅーう"],
-  ジュウ: ["ジュウ", "ジュ", "ジュー"],
+  じゅう: ['じゅう', 'じゅ', 'じゅー', 'じゅうう', 'じゅーう'],
+  ジュウ: ['ジュウ', 'ジュ', 'ジュー'],
   // ひゃく系
-  ひゃく: ["ひゃく", "ひゃ", "ひゃーく", "ひゃっ", "ひゃくく"],
-  ヒャク: ["ヒャク", "ヒャ", "ヒャーク"],
+  ひゃく: ['ひゃく', 'ひゃ', 'ひゃーく', 'ひゃっ', 'ひゃくく'],
+  ヒャク: ['ヒャク', 'ヒャ', 'ヒャーク'],
   // せん系
-  せん: ["せん", "せ", "せーん", "せえん", "せんん"],
-  セン: ["セン", "セ", "セーン"],
+  せん: ['せん', 'せ', 'せーん', 'せえん', 'せんん'],
+  セン: ['セン', 'セ', 'セーン'],
   // まん系
-  まん: ["まん", "ま", "まーん", "まあん"],
-  マン: ["マン", "マ", "マーン"],
+  まん: ['まん', 'ま', 'まーん', 'まあん'],
+  マン: ['マン', 'マ', 'マーン'],
 };
 
 /**
@@ -270,10 +270,7 @@ function levenshteinDistance(str1: string, str2: string): number {
  * @param kanjiMap - 数字マッピング
  * @returns 認識された数値、または null
  */
-function getBasicNumberFuzzy(
-  text: string,
-  kanjiMap: NumberMap
-): number | null {
+function getBasicNumberFuzzy(text: string, kanjiMap: NumberMap): number | null {
   const lowerText = text.toLowerCase().trim();
 
   // 完全一致を優先
@@ -299,8 +296,7 @@ function getBasicNumberFuzzy(
   }
 
   // ファジーマッチング（部分一致）
-  let bestMatch: { key: string; value: number; similarity: number } | null =
-    null;
+  let bestMatch: { key: string; value: number; similarity: number } | null = null;
   for (const [key, value] of Object.entries(kanjiMap)) {
     const keyLower = key.toLowerCase();
     // 部分一致チェック
@@ -326,10 +322,7 @@ function getBasicNumberFuzzy(
  * @param kanjiMap - 数字マッピング
  * @returns 認識された数値（見つからない場合は0）
  */
-function getBasicNumber(
-  text: string,
-  kanjiMap: NumberMap
-): number {
+function getBasicNumber(text: string, kanjiMap: NumberMap): number {
   const fuzzyResult = getBasicNumberFuzzy(text, kanjiMap);
   return fuzzyResult !== null ? fuzzyResult : 0;
 }
@@ -354,7 +347,7 @@ function findUnitFuzzy(
 } | null {
   // 完全一致を優先
   for (const [unit, multiplier] of Object.entries(unitMap)) {
-    const escapedUnit = unit.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+    const escapedUnit = unit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
     const regex = new RegExp(`(.+)?(${escapedUnit})(.*)$`);
     const match = text.match(regex);
     if (match) {
@@ -376,7 +369,7 @@ function findUnitFuzzy(
     for (const variant of unitVariants) {
       const similarity = calculateSimilarity(text, variant);
       if (similarity >= UNIT_FUZZY_MATCH_THRESHOLD) {
-        const escapedVariant = variant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+        const escapedVariant = variant.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
         const regex = new RegExp(`(.+)?(${escapedVariant})(.*)$`);
         const match = text.match(regex);
         if (match && (!bestMatch || similarity > bestMatch.similarity)) {
@@ -388,7 +381,7 @@ function findUnitFuzzy(
     // 部分一致チェック（「じゅう」が「じゅ」と認識された場合など）
     const partialUnit = unit.substring(0, Math.max(1, unit.length - 1));
     if (text.includes(partialUnit) && partialUnit.length >= 1) {
-      const escapedPartial = partialUnit.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+      const escapedPartial = partialUnit.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const regex = new RegExp(`(.+)?(${escapedPartial})(.*)$`);
       const match = text.match(regex);
       if (match && (!bestMatch || PARTIAL_MATCH_SIMILARITY > (bestMatch.similarity || 0))) {
@@ -419,16 +412,12 @@ function findUnitFuzzy(
  * @param unitMap - 位取り単位マッピング
  * @returns パースされた数値
  */
-function parseJapaneseNumberPart(
-  text: string,
-  kanjiMap: NumberMap,
-  unitMap: NumberMap
-): number {
+function parseJapaneseNumberPart(text: string, kanjiMap: NumberMap, unitMap: NumberMap): number {
   let result = 0;
 
   // 千の位（ファジーマッチング対応）
   const senFuzzy = findUnitFuzzy(text, { せん: 1000, 千: 1000 });
-  if (senFuzzy && senFuzzy.match) {
+  if (senFuzzy?.match) {
     const beforeSen = senFuzzy.match[1];
     const afterSen = senFuzzy.match[3];
 
@@ -448,7 +437,7 @@ function parseJapaneseNumberPart(
 
   // 百の位（ファジーマッチング対応）
   const hyakuFuzzy = findUnitFuzzy(text, { ひゃく: 100, 百: 100 });
-  if (hyakuFuzzy && hyakuFuzzy.match) {
+  if (hyakuFuzzy?.match) {
     const beforeHyaku = hyakuFuzzy.match[1];
     const afterHyaku = hyakuFuzzy.match[3];
 
@@ -468,7 +457,7 @@ function parseJapaneseNumberPart(
 
   // 十の位（ファジーマッチング対応）
   const juFuzzy = findUnitFuzzy(text, { じゅう: 10, 十: 10 });
-  if (juFuzzy && juFuzzy.match) {
+  if (juFuzzy?.match) {
     const beforeJu = juFuzzy.match[1];
     const afterJu = juFuzzy.match[3];
 
@@ -504,7 +493,7 @@ function parseJapaneseNumberPart(
 function parseJapaneseNumber(text: string): number | null {
   // 万の位の処理（ファジーマッチング対応）
   const manFuzzy = findUnitFuzzy(text, { まん: 10000, 万: 10000 });
-  if (manFuzzy && manFuzzy.match) {
+  if (manFuzzy?.match) {
     const beforeMan = manFuzzy.match[1];
     const afterMan = manFuzzy.match[3];
 
@@ -593,10 +582,14 @@ function generateNumberKeywords(): string[] {
   const keywords = new Set<string>();
 
   // kanjiToNumのキーを追加
-  Object.keys(kanjiToNum).forEach(key => keywords.add(key));
+  for (const key of Object.keys(kanjiToNum)) {
+    keywords.add(key);
+  }
 
   // unitToMultiplierのキーを追加
-  Object.keys(unitToMultiplier).forEach(key => keywords.add(key));
+  for (const key of Object.keys(unitToMultiplier)) {
+    keywords.add(key);
+  }
 
   // アラビア数字を追加
   for (let i = 0; i <= 9; i++) {
