@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { initializeDatabase } from '@/db/client';
 import type { CardSet } from '@/db/schema';
 import { getAllCardSets, saveCardSet } from '@/db/service';
 import { GRADE1_CARD_SETS } from '@/utils/card-set-generator';
@@ -15,6 +16,20 @@ export default function CardSetSelector({
 }: CardSetSelectorProps) {
   const [cardSets, setCardSets] = useState<CardSet[]>([]);
   const [loading, setLoading] = useState(true);
+  const [dbInitialized, setDbInitialized] = useState(false);
+
+  // データベースを初期化
+  useEffect(() => {
+    initializeDatabase()
+      .then(() => {
+        console.log('[CardSetSelector] Database initialized');
+        setDbInitialized(true);
+      })
+      .catch((error) => {
+        console.error('[CardSetSelector] Failed to initialize database:', error);
+        setDbInitialized(true); // エラーでも続行する
+      });
+  }, []);
 
   // デフォルトのカードセットを初期化
   const initializeDefaultCardSets = useCallback(async () => {
@@ -32,6 +47,7 @@ export default function CardSetSelector({
   const loadCardSets = useCallback(async () => {
     try {
       setLoading(true);
+
       let sets = await getAllCardSets();
 
       // カードセットが存在しない場合は、デフォルトのカードセットを作成
@@ -49,9 +65,12 @@ export default function CardSetSelector({
     }
   }, [initializeDefaultCardSets]);
 
+  // データベース初期化完了後にカードセットを読み込む
   useEffect(() => {
-    loadCardSets();
-  }, [loadCardSets]);
+    if (dbInitialized) {
+      loadCardSets();
+    }
+  }, [dbInitialized, loadCardSets]);
 
   if (loading) {
     return (
