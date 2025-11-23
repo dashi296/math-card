@@ -1,10 +1,81 @@
 /**
  * 日本語の音声テキストから数字を抽出するユーティリティ
- * 不正確な発声にも対応するためのファジーマッチング機能を含む
+ *
+ * 主な機能:
+ * - 日本語音声入力（ひらがな、カタカナ、漢字）を数値に変換
+ * - ファジーマッチングによる不正確な発声への対応
+ * - 音韻類似度を考慮した柔軟な認識
+ * - 0から99999までの数字に対応
+ *
+ * 使用例:
+ * - extractNumber("にじゅうさん") → "23"
+ * - extractNumber("千二百三十四") → "1234"
+ * - scoreNumberCandidate("にじゅう") → 高スコア（数字候補として妥当）
  */
 
-// 音韻類似度マッピング（似た音のグループ）
-const phoneticSimilarity: { [key: string]: string[] } = {
+// ========================================
+// 型定義
+// ========================================
+
+type NumberMap = Record<string, number>;
+type PhoneticMap = Record<string, string[]>;
+
+// ========================================
+// 定数定義
+// ========================================
+
+/** ファジーマッチングの類似度閾値 */
+const FUZZY_MATCH_THRESHOLD = 0.6;
+const UNIT_FUZZY_MATCH_THRESHOLD = 0.5;
+const PARTIAL_MATCH_SIMILARITY = 0.7;
+
+/** スコアリング定数 */
+const SCORE = {
+  KEYWORD_MATCH: 10,
+  FUZZY_MATCH_BASE: 5,
+  NUMBER_CONVERSION: 50,
+  ARABIC_NUMERAL: 30,
+  SINGLE_CHAR_PENALTY: -20,
+  NOISE_WORD_PENALTY: -15,
+} as const;
+
+/** ノイズワード */
+const NOISE_WORDS = ["です", "ます", "でした", "ました", "は", "が", "を", "の", "と"] as const;
+
+// ========================================
+// 変換マッピング
+// ========================================
+
+/** カタカナ→ひらがな変換マッピング（数字関連のみ） */
+const katakanaToHiragana: Record<string, string> = {
+  ゼロ: "ぜろ",
+  イチ: "いち",
+  ニ: "に",
+  サン: "さん",
+  シ: "し",
+  ヨン: "よん",
+  ゴ: "ご",
+  ロク: "ろく",
+  シチ: "しち",
+  ナナ: "なな",
+  ハチ: "はち",
+  キュウ: "きゅう",
+  ク: "く",
+  ジュウ: "じゅう",
+  ヒャク: "ひゃく",
+  セン: "せん",
+  マン: "まん",
+};
+
+/**
+ * 音韻類似度マッピング
+ *
+ * 不正確な発声や音声認識エラーに対応するため、
+ * 各数字の似た音のバリエーションを定義
+ *
+ * 例: "いち" → ["いっ", "い", "いち", "いっち"]
+ */
+const phoneticSimilarity: PhoneticMap = {
   // いち系
   いち: ["いっ", "い", "いち", "いっち"],
   イチ: ["イッ", "イ", "イチ", "イッチ"],
@@ -50,8 +121,13 @@ const phoneticSimilarity: { [key: string]: string[] } = {
   マン: ["マン", "マ", "マーン"],
 };
 
-// 日本語の基本数字マッピング（0-9）
-const kanjiToNum: { [key: string]: number } = {
+/**
+ * 基本数字マッピング（0-9）
+ *
+ * ひらがな、カタカナ、漢字、正字体（壱・弐・参）を含む
+ * すべての基本的な数字表記を数値に変換
+ */
+const kanjiToNum: NumberMap = {
   零: 0,
   ゼロ: 0,
   れい: 0,
@@ -94,8 +170,13 @@ const kanjiToNum: { [key: string]: number } = {
   ク: 9,
 };
 
-// 位取りマッピング
-const unitToMultiplier: { [key: string]: number } = {
+/**
+ * 位取り単位マッピング
+ *
+ * 十、百、千、万の各位の表記（ひらがな、カタカナ、漢字）を
+ * 対応する倍数に変換
+ */
+const unitToMultiplier: NumberMap = {
   十: 10,
   じゅう: 10,
   ジュウ: 10,
@@ -110,8 +191,30 @@ const unitToMultiplier: { [key: string]: number } = {
   マン: 10000,
 };
 
+// ========================================
+// ヘルパー関数
+// ========================================
+
 /**
- * 文字列の類似度を計算（レーベンシュタイン距離ベースの簡易版）
+ * カタカナをひらがなに変換（数字関連の文字のみ）
+ *
+ * @param text - 変換対象のテキスト
+ * @returns ひらがなに変換されたテキスト
+ */
+function convertKatakanaToHiragana(text: string): string {
+  let result = text;
+  for (const [katakana, hiragana] of Object.entries(katakanaToHiragana)) {
+    result = result.replace(new RegExp(katakana, 'g'), hiragana);
+  }
+  return result;
+}
+
+/**
+ * 文字列の類似度を計算（レーベンシュタイン距離ベース）
+ *
+ * @param str1 - 比較文字列1
+ * @param str2 - 比較文字列2
+ * @returns 類似度（0.0〜1.0、1.0が完全一致）
  */
 function calculateSimilarity(str1: string, str2: string): number {
   const longer = str1.length > str2.length ? str1 : str2;
@@ -122,7 +225,13 @@ function calculateSimilarity(str1: string, str2: string): number {
 }
 
 /**
- * レーベンシュタイン距離を計算
+ * レーベンシュタイン距離を計算（動的計画法）
+ *
+ * 2つの文字列間の編集距離（挿入、削除、置換の最小回数）を計算
+ *
+ * @param str1 - 比較文字列1
+ * @param str2 - 比較文字列2
+ * @returns 編集距離
  */
 function levenshteinDistance(str1: string, str2: string): number {
   const matrix: number[][] = [];
@@ -148,15 +257,24 @@ function levenshteinDistance(str1: string, str2: string): number {
   return matrix[str2.length][str1.length];
 }
 
+// ========================================
+// 数字パース処理
+// ========================================
+
 /**
- * ファジーマッチングで数字を取得（似た音も認識）
+ * ファジーマッチングで基本数字を取得（0-9）
+ *
+ * 音韻類似度と部分一致を考慮して、不正確な発声から数字を認識
+ *
+ * @param text - 検索対象のテキスト
+ * @param kanjiMap - 数字マッピング
+ * @returns 認識された数値、または null
  */
 function getBasicNumberFuzzy(
   text: string,
-  kanjiMap: { [key: string]: number }
+  kanjiMap: NumberMap
 ): number | null {
   const lowerText = text.toLowerCase().trim();
-  const threshold = 0.6; // 類似度の閾値
 
   // 完全一致を優先
   for (const [key, value] of Object.entries(kanjiMap)) {
@@ -169,7 +287,7 @@ function getBasicNumberFuzzy(
   for (const [base, variants] of Object.entries(phoneticSimilarity)) {
     for (const variant of variants) {
       const similarity = calculateSimilarity(lowerText, variant);
-      if (similarity >= threshold) {
+      if (similarity >= FUZZY_MATCH_THRESHOLD) {
         // ベース音から数字を取得
         for (const [key, value] of Object.entries(kanjiMap)) {
           if (key.toLowerCase() === base.toLowerCase()) {
@@ -188,7 +306,7 @@ function getBasicNumberFuzzy(
     // 部分一致チェック
     if (lowerText.includes(keyLower) || keyLower.includes(lowerText)) {
       const similarity = calculateSimilarity(lowerText, keyLower);
-      if (similarity >= threshold) {
+      if (similarity >= FUZZY_MATCH_THRESHOLD) {
         if (!bestMatch || similarity > bestMatch.similarity) {
           bestMatch = { key, value, similarity };
         }
@@ -200,22 +318,35 @@ function getBasicNumberFuzzy(
 }
 
 /**
- * 基本的な数字（0-9）の取得（後方互換性のため残す）
+ * 基本数字を取得（0-9）
+ *
+ * getBasicNumberFuzzyのラッパー関数。nullの場合は0を返す
+ *
+ * @param text - 検索対象のテキスト
+ * @param kanjiMap - 数字マッピング
+ * @returns 認識された数値（見つからない場合は0）
  */
 function getBasicNumber(
   text: string,
-  kanjiMap: { [key: string]: number }
+  kanjiMap: NumberMap
 ): number {
   const fuzzyResult = getBasicNumberFuzzy(text, kanjiMap);
   return fuzzyResult !== null ? fuzzyResult : 0;
 }
 
 /**
- * ファジーマッチングで単位を検索
+ * ファジーマッチングで位取り単位を検索
+ *
+ * テキスト内から十、百、千、万などの単位を検索し、
+ * 前後のテキストと共に返す
+ *
+ * @param text - 検索対象のテキスト
+ * @param unitMap - 単位マッピング
+ * @returns 単位情報（単位、倍数、マッチ結果）、または null
  */
 function findUnitFuzzy(
   text: string,
-  unitMap: { [key: string]: number }
+  unitMap: NumberMap
 ): {
   unit: string;
   multiplier: number;
@@ -232,7 +363,6 @@ function findUnitFuzzy(
   }
 
   // ファジーマッチング（部分一致）
-  const threshold = 0.5;
   let bestMatch: {
     unit: string;
     multiplier: number;
@@ -245,7 +375,7 @@ function findUnitFuzzy(
     const unitVariants = phoneticSimilarity[unit] || [unit];
     for (const variant of unitVariants) {
       const similarity = calculateSimilarity(text, variant);
-      if (similarity >= threshold) {
+      if (similarity >= UNIT_FUZZY_MATCH_THRESHOLD) {
         const escapedVariant = variant.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
         const regex = new RegExp(`(.+)?(${escapedVariant})(.*)$`);
         const match = text.match(regex);
@@ -261,8 +391,8 @@ function findUnitFuzzy(
       const escapedPartial = partialUnit.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
       const regex = new RegExp(`(.+)?(${escapedPartial})(.*)$`);
       const match = text.match(regex);
-      if (match && (!bestMatch || 0.7 > (bestMatch.similarity || 0))) {
-        bestMatch = { unit, multiplier, match, similarity: 0.7 };
+      if (match && (!bestMatch || PARTIAL_MATCH_SIMILARITY > (bestMatch.similarity || 0))) {
+        bestMatch = { unit, multiplier, match, similarity: PARTIAL_MATCH_SIMILARITY };
       }
     }
   }
@@ -277,13 +407,22 @@ function findUnitFuzzy(
 }
 
 /**
- * 日本語数字の部分的なパース（千、百、十の位まで）
- * ファジーマッチング対応版
+ * 日本語数字の部分的なパース（千の位まで）
+ *
+ * 千、百、十の位を持つ数字をパースする（万の位は含まない）
+ * 再帰的に処理することで複雑な数字表現に対応
+ *
+ * 例: "二千三百四十五" → 2345
+ *
+ * @param text - パース対象のテキスト
+ * @param kanjiMap - 基本数字マッピング
+ * @param unitMap - 位取り単位マッピング
+ * @returns パースされた数値
  */
 function parseJapaneseNumberPart(
   text: string,
-  kanjiMap: { [key: string]: number },
-  unitMap: { [key: string]: number }
+  kanjiMap: NumberMap,
+  unitMap: NumberMap
 ): number {
   let result = 0;
 
@@ -352,7 +491,69 @@ function parseJapaneseNumberPart(
 }
 
 /**
+ * 日本語テキストを数値にパース（0-99999）
+ *
+ * 万の位を含む完全な数字パース処理
+ * parseJapaneseNumberPartを使用して各位を処理
+ *
+ * 例: "一万二千三百四十五" → 12345
+ *
+ * @param text - パース対象のテキスト
+ * @returns パースされた数値、または null（パース失敗時）
+ */
+function parseJapaneseNumber(text: string): number | null {
+  // 万の位の処理（ファジーマッチング対応）
+  const manFuzzy = findUnitFuzzy(text, { まん: 10000, 万: 10000 });
+  if (manFuzzy && manFuzzy.match) {
+    const beforeMan = manFuzzy.match[1];
+    const afterMan = manFuzzy.match[3];
+
+    let result = 0;
+
+    // 万の前の部分を処理
+    if (beforeMan) {
+      result += parseJapaneseNumberPart(beforeMan, kanjiToNum, unitToMultiplier) * 10000;
+    } else {
+      result += 10000;
+    }
+
+    // 万の後の部分を処理
+    if (afterMan) {
+      result += parseJapaneseNumberPart(afterMan, kanjiToNum, unitToMultiplier);
+    }
+
+    return result;
+  }
+
+  // 万がない場合は通常の処理
+  const parsed = parseJapaneseNumberPart(text, kanjiToNum, unitToMultiplier);
+  return parsed > 0 ? parsed : null;
+}
+
+// ========================================
+// 公開API
+// ========================================
+
+/**
  * 音声テキストから数字を抽出
+ *
+ * 日本語の音声入力テキストを数字（文字列形式）に変換します。
+ * アラビア数字、ひらがな、カタカナ、漢字のすべてに対応。
+ *
+ * 処理手順:
+ * 1. アラビア数字が含まれていればそのまま返す
+ * 2. カタカナをひらがなに変換
+ * 3. 日本語数字表現をパース
+ * 4. パース失敗時は簡易マッチングを試行
+ *
+ * @param text - 音声認識結果のテキスト
+ * @returns 抽出された数字（文字列）。抽出できない場合は元のテキストを返す
+ *
+ * @example
+ * extractNumber("にじゅうさん") // "23"
+ * extractNumber("千二百三十四") // "1234"
+ * extractNumber("一万") // "10000"
+ * extractNumber("123") // "123"
  */
 export function extractNumber(text: string): string {
   // まず、アラビア数字をそのまま抽出
@@ -361,57 +562,13 @@ export function extractNumber(text: string): string {
     return numberMatch[0];
   }
 
-  let processedText = text.toLowerCase();
-
   // カタカナをひらがなに変換して統一
-  processedText = processedText
-    .replace(/ゼロ/g, "ぜろ")
-    .replace(/イチ/g, "いち")
-    .replace(/ニ/g, "に")
-    .replace(/サン/g, "さん")
-    .replace(/シ/g, "し")
-    .replace(/ヨン/g, "よん")
-    .replace(/ゴ/g, "ご")
-    .replace(/ロク/g, "ろく")
-    .replace(/シチ/g, "しち")
-    .replace(/ナナ/g, "なな")
-    .replace(/ハチ/g, "はち")
-    .replace(/キュウ/g, "きゅう")
-    .replace(/ク/g, "く")
-    .replace(/ジュウ/g, "じゅう")
-    .replace(/ヒャク/g, "ひゃく")
-    .replace(/セン/g, "せん")
-    .replace(/マン/g, "まん");
+  const processedText = convertKatakanaToHiragana(text.toLowerCase());
 
-  // 複雑な数字の変換（例：二十三、百五、千二百三十四）
-  let result = 0;
-
-  // 万の位の処理（ファジーマッチング対応）
-  const manFuzzy = findUnitFuzzy(processedText, { まん: 10000, 万: 10000 });
-  if (manFuzzy && manFuzzy.match) {
-    const beforeMan = manFuzzy.match[1];
-    const afterMan = manFuzzy.match[3];
-
-    // 万の前の部分を処理
-    result +=
-      parseJapaneseNumberPart(beforeMan, kanjiToNum, unitToMultiplier) * 10000;
-
-    // 万の後の部分を処理
-    if (afterMan) {
-      result += parseJapaneseNumberPart(afterMan, kanjiToNum, unitToMultiplier);
-    }
-
-    return result.toString();
-  }
-
-  // 万がない場合は通常の処理
-  const parsed = parseJapaneseNumberPart(
-    processedText,
-    kanjiToNum,
-    unitToMultiplier
-  );
-  if (parsed > 0) {
-    return parsed.toString();
+  // 日本語数字のパース
+  const parsedNumber = parseJapaneseNumber(processedText);
+  if (parsedNumber !== null) {
+    return parsedNumber.toString();
   }
 
   // 単純なマッチング（後方互換）
@@ -425,89 +582,71 @@ export function extractNumber(text: string): string {
 }
 
 /**
- * 候補が数字としてどれだけ妥当かをスコアリング
- * ファジーマッチングも考慮
+ * 数字キーワードを生成
+ *
+ * kanjiToNumとunitToMultiplierから自動的に
+ * 数字関連キーワードのリストを生成
+ *
+ * @returns 数字キーワードの配列
+ */
+function generateNumberKeywords(): string[] {
+  const keywords = new Set<string>();
+
+  // kanjiToNumのキーを追加
+  Object.keys(kanjiToNum).forEach(key => keywords.add(key));
+
+  // unitToMultiplierのキーを追加
+  Object.keys(unitToMultiplier).forEach(key => keywords.add(key));
+
+  // アラビア数字を追加
+  for (let i = 0; i <= 9; i++) {
+    keywords.add(i.toString());
+  }
+
+  return Array.from(keywords);
+}
+
+/** 数字キーワードのキャッシュ */
+const NUMBER_KEYWORDS = generateNumberKeywords();
+
+/**
+ * 候補テキストが数字としてどれだけ妥当かをスコアリング
+ *
+ * 音声認識結果の複数の候補から、最も数字らしい候補を選択するために使用。
+ * 様々な要素を考慮してスコアを計算します。
+ *
+ * スコアリング要素:
+ * - 数字キーワードの含有 (+10点/キーワード)
+ * - ファジーマッチング (+5点 × 類似度)
+ * - 数字への変換可能性 (+50点)
+ * - アラビア数字の含有 (+30点)
+ * - 単一文字ペナルティ (-20点)
+ * - ノイズワードペナルティ (-15点/単語)
+ *
+ * @param text - スコアリング対象のテキスト
+ * @returns スコア（高いほど数字として妥当）
+ *
+ * @example
+ * scoreNumberCandidate("にじゅう") // 高スコア
+ * scoreNumberCandidate("こんにちは") // 低スコア
  */
 export function scoreNumberCandidate(text: string): number {
   let score = 0;
   const lowerText = text.toLowerCase();
 
-  // 数字キーワードが含まれているかチェック（ファジーマッチングも考慮）
-  const numberKeywords = [
-    "ぜろ",
-    "れい",
-    "いち",
-    "に",
-    "さん",
-    "し",
-    "よん",
-    "ご",
-    "ろく",
-    "しち",
-    "なな",
-    "はち",
-    "きゅう",
-    "く",
-    "じゅう",
-    "ひゃく",
-    "せん",
-    "まん",
-    "ゼロ",
-    "レイ",
-    "イチ",
-    "ニ",
-    "サン",
-    "シ",
-    "ヨン",
-    "ゴ",
-    "ロク",
-    "シチ",
-    "ナナ",
-    "ハチ",
-    "キュウ",
-    "ク",
-    "ジュウ",
-    "ヒャク",
-    "セン",
-    "マン",
-    "一",
-    "二",
-    "三",
-    "四",
-    "五",
-    "六",
-    "七",
-    "八",
-    "九",
-    "十",
-    "百",
-    "千",
-    "万",
-    "0",
-    "1",
-    "2",
-    "3",
-    "4",
-    "5",
-    "6",
-    "7",
-    "8",
-    "9",
-  ];
-
   // 数字キーワードの出現回数をスコアに加算（完全一致）
-  numberKeywords.forEach((keyword) => {
+  NUMBER_KEYWORDS.forEach((keyword) => {
     if (lowerText.includes(keyword.toLowerCase())) {
-      score += 10;
+      score += SCORE.KEYWORD_MATCH;
     }
   });
 
   // ファジーマッチングで数字キーワードを検出
-  for (const [base, variants] of Object.entries(phoneticSimilarity)) {
+  for (const variants of Object.values(phoneticSimilarity)) {
     for (const variant of variants) {
       const similarity = calculateSimilarity(lowerText, variant);
-      if (similarity >= 0.6) {
-        score += 5 * similarity; // 類似度に応じてスコアを加算
+      if (similarity >= FUZZY_MATCH_THRESHOLD) {
+        score += SCORE.FUZZY_MATCH_BASE * similarity; // 類似度に応じてスコアを加算
       }
     }
   }
@@ -515,34 +654,23 @@ export function scoreNumberCandidate(text: string): number {
   // 数字に変換できるかチェック
   const extractedNumber = extractNumber(text);
   if (extractedNumber !== text && extractedNumber.match(/^\d+$/)) {
-    score += 50; // 数字に変換できた場合は高スコア
+    score += SCORE.NUMBER_CONVERSION; // 数字に変換できた場合は高スコア
   }
 
   // アラビア数字が含まれている場合はさらに加点
   if (/\d/.test(text)) {
-    score += 30;
+    score += SCORE.ARABIC_NUMERAL;
   }
 
   // テキストが短すぎる場合は減点（1文字の場合）
   if (text.length === 1 && !text.match(/\d/)) {
-    score -= 20;
+    score += SCORE.SINGLE_CHAR_PENALTY;
   }
 
   // 余計な単語が含まれている場合は減点
-  const noiseWords = [
-    "です",
-    "ます",
-    "でした",
-    "ました",
-    "は",
-    "が",
-    "を",
-    "の",
-    "と",
-  ];
-  noiseWords.forEach((word) => {
+  NOISE_WORDS.forEach((word) => {
     if (lowerText.includes(word)) {
-      score -= 15;
+      score += SCORE.NOISE_WORD_PENALTY;
     }
   });
 
