@@ -18,6 +18,7 @@ Math Card is a React Native mobile application built with Expo that provides an 
 - **Framework**: Expo 54 with React Native 0.81.5
 - **Router**: Expo Router 6 (file-based routing)
 - **Language**: TypeScript with strict mode
+- **Package Manager**: Bun (fast, modern JavaScript runtime and package manager)
 - **Linter & Formatter**: Biome (fast, modern alternative to ESLint and Prettier)
 - **Navigation**: React Navigation 7 with bottom tabs
 - **Voice Recognition**: expo-speech-recognition (Expo official package)
@@ -26,30 +27,35 @@ Math Card is a React Native mobile application built with Expo that provides an 
 
 ## Development Commands
 
+This project uses **Bun** as its package manager for faster installation and execution.
+
 ```bash
+# Install dependencies
+bun install
+
 # Start development server
-npm start
+bun start
 
 # Run on iOS
-npm run ios
+bun ios
 
 # Run on Android
-npm run android
+bun android
 
 # Run on web
-npm run web
+bun web
 
 # Lint code (with Biome)
-npm run lint
+bun lint
 
 # Auto-fix lint errors
-npm run lint:fix
+bun lint:fix
 
 # Format code
-npm run format
+bun format
 
 # Reset project (removes example code)
-npm run reset-project
+bun reset-project
 ```
 
 ## Project Structure

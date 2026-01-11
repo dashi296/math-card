@@ -1,0 +1,6 @@
+[tools]
+node = "20.19.6"
+java = "21.0.2"
+
+[env]
+ANDROID_HOME = "{{env.HOME}}/Library/Android/sdk"
