@@ -1,8 +1,10 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
+import { CARD_TRANSITION_DELAY_MS, VOICE_RECOGNITION_START_DELAY_MS } from '@/constants/timing';
 import { useMathFlashcard } from '@/hooks/use-math-flashcard';
 import { useSoundEffect } from '@/hooks/use-sound-effect';
 import { useVoiceNumberRecognition } from '@/hooks/use-voice-number-recognition';
+import { calculateAccuracy } from '@/utils/stats';
 
 export default function MathFlashcard() {
   const {
@@ -20,7 +22,6 @@ export default function MathFlashcard() {
   const {
     isListening,
     recognizedNumber,
-    recognizedText,
     interimText,
     error,
     startListening,
@@ -37,19 +38,12 @@ export default function MathFlashcard() {
   // Track if user has started (first manual start)
   const [hasStarted, setHasStarted] = useState(false);
 
-  // Debug: Track showFeedback changes in component
-  useEffect(() => {
-    console.log('[MathFlashcard Component] showFeedback changed to:', showFeedback);
-  }, [showFeedback]);
-
   // Play sound effect when answer is checked
   useEffect(() => {
     if (showFeedback) {
       if (isCorrect) {
-        console.log('[Sound] Playing correct sound');
         playCorrectSound();
       } else {
-        console.log('[Sound] Playing incorrect sound');
         playIncorrectSound();
       }
     }
@@ -58,18 +52,13 @@ export default function MathFlashcard() {
   // Auto-advance to next problem if answer is correct
   useEffect(() => {
     if (showFeedback && isCorrect) {
-      console.log('[Auto-advance] Correct answer! Clearing results and moving to next problem');
-
       // Clear the recognized number
       clearResults();
 
       // Wait a bit for clearResults to take effect before generating next problem
       const timer = setTimeout(() => {
-        console.log('[Auto-advance] Now generating next problem');
-        // Note: lastCheckedNumberRef is already set in auto-check effect
-        // We'll reset it to null in auto-start effect
         nextProblem();
-      }, 100); // Small delay to ensure clearResults takes effect
+      }, CARD_TRANSITION_DELAY_MS);
 
       return () => clearTimeout(timer);
     }
@@ -78,23 +67,15 @@ export default function MathFlashcard() {
   // Auto-start voice recognition when a new problem is shown (only after initial start)
   useEffect(() => {
     if (hasStarted && problem && !showFeedback && !isListening) {
-      console.log('[Auto-start] Starting voice recognition automatically');
-      console.log('[Auto-start] recognizedNumber:', recognizedNumber);
-      console.log('[Auto-start] lastCheckedNumberRef.current:', lastCheckedNumberRef.current);
-
       // Only reset ref if recognizedNumber has been cleared
-      // This prevents old answers from being re-checked
       if (!recognizedNumber) {
-        console.log('[Auto-start] Resetting lastCheckedNumberRef to null');
         lastCheckedNumberRef.current = null;
-      } else {
-        console.log('[Auto-start] NOT resetting ref because recognizedNumber still exists');
       }
 
       // Small delay to ensure UI is ready
       const timer = setTimeout(() => {
         startListening();
-      }, 500);
+      }, VOICE_RECOGNITION_START_DELAY_MS);
 
       return () => clearTimeout(timer);
     }
@@ -102,81 +83,80 @@ export default function MathFlashcard() {
 
   // Auto-check answer when a number is recognized
   useEffect(() => {
-    console.log('=== useEffect triggered ===');
-    console.log('  recognizedNumber:', recognizedNumber, 'type:', typeof recognizedNumber);
-    console.log('  showFeedback:', showFeedback);
-    console.log('  lastChecked:', lastCheckedNumberRef.current);
-
-    // Check each condition individually
-    const hasRecognizedNumber = !!recognizedNumber;
-    const feedbackNotShown = !showFeedback;
-    const isDifferentFromLast = recognizedNumber !== lastCheckedNumberRef.current;
-
-    console.log('  Condition checks:');
-    console.log('    hasRecognizedNumber:', hasRecognizedNumber);
-    console.log('    feedbackNotShown:', feedbackNotShown);
-    console.log('    isDifferentFromLast:', isDifferentFromLast);
-    console.log(
-      '    All conditions met:',
-      hasRecognizedNumber && feedbackNotShown && isDifferentFromLast
-    );
-
     if (recognizedNumber && !showFeedback && recognizedNumber !== lastCheckedNumberRef.current) {
       const answer = Number.parseInt(recognizedNumber, 10);
-      console.log('  Parsed answer:', answer, 'isNaN:', Number.isNaN(answer));
 
       if (!Number.isNaN(answer)) {
-        console.log('  ✓ Stopping listening FIRST to prevent continuous recognition');
         // Stop listening BEFORE checking answer to prevent next utterance from being appended
         stopListening();
 
-        console.log('  ✓ Calling checkAnswer with:', answer);
         lastCheckedNumberRef.current = recognizedNumber;
         checkAnswerCallCountRef.current += 1;
         checkAnswer(answer);
-        console.log('  ✓ After checkAnswer call');
-      } else {
-        console.log('  ✗ Answer is NaN, skipping');
       }
-    } else {
-      console.log('  ✗ Conditions not met, skipping checkAnswer');
     }
-    console.log('=== useEffect end ===');
   }, [recognizedNumber, showFeedback, checkAnswer, stopListening]);
 
   const handleStart = () => {
-    console.log('[Start] User started the session');
     setHasStarted(true);
     startListening();
   };
 
   const handleRetry = () => {
-    console.log('[Retry] User retrying the same problem');
     clearResults();
     lastCheckedNumberRef.current = null;
-    resetFeedback(); // Reset feedback to allow another attempt
-    // Audio will auto-start via useEffect
+    resetFeedback();
   };
 
   const handleResetStats = () => {
-    console.log('[Reset] Resetting stats and going back to start');
     resetStats();
     setHasStarted(false);
     clearResults();
     lastCheckedNumberRef.current = null;
   };
 
-  // Test function to directly call checkAnswer
-  const handleTestCheckAnswer = () => {
-    console.log('TEST: Manually calling checkAnswer with answer 99');
-    checkAnswer(99);
+  const renderActionButtons = () => {
+    if (!hasStarted) {
+      return (
+        <View style={styles.button}>
+          <Button title="🎤 開始する" onPress={handleStart} color="#4CAF50" />
+        </View>
+      );
+    }
+
+    if (!showFeedback) {
+      return (
+        <>
+          {isListening && (
+            <View style={styles.button}>
+              <Button title="⏸ 一時停止" onPress={stopListening} color="#f44336" />
+            </View>
+          )}
+          {!isListening && recognizedNumber && (
+            <View style={styles.button}>
+              <Button title="🎤 再認識" onPress={handleRetry} color="#FF9800" />
+            </View>
+          )}
+        </>
+      );
+    }
+
+    if (!isCorrect) {
+      return (
+        <View style={styles.button}>
+          <Button title="🔄 もう一度挑戦" onPress={handleRetry} color="#FF9800" />
+        </View>
+      );
+    }
+
+    return null;
   };
 
   if (!problem) {
     return null;
   }
 
-  const accuracy = stats.total > 0 ? ((stats.correct / stats.total) * 100).toFixed(1) : '0.0';
+  const accuracy = calculateAccuracy(stats.correct, stats.total);
 
   return (
     <View style={styles.container}>
@@ -200,14 +180,6 @@ export default function MathFlashcard() {
       <View style={styles.problemContainer}>
         <Text style={styles.problemText}>
           {problem.num1} {problem.operator} {problem.num2} = ?
-        </Text>
-        {/* Debug info */}
-        <Text style={{ fontSize: 10, marginTop: 10, color: '#999' }}>
-          Debug: showFeedback={String(showFeedback)},{'\n'}
-          recognizedNumber="{recognizedNumber}" (type: {typeof recognizedNumber}){'\n'}
-          recognizedText="{recognizedText}" interimText="{interimText}"{'\n'}
-          userAnswer={String(userAnswer)}, isCorrect={String(isCorrect)},{'\n'}
-          lastChecked="{lastCheckedNumberRef.current}", callCount={checkAnswerCallCountRef.current}
         </Text>
       </View>
 
@@ -254,50 +226,8 @@ export default function MathFlashcard() {
         </View>
       )}
 
-      {/* Test Button */}
-      <View style={{ marginVertical: 10 }}>
-        <Button
-          title="TEST: Call checkAnswer(99)"
-          onPress={handleTestCheckAnswer}
-          color="#9C27B0"
-        />
-      </View>
-
       {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
-        <Text style={{ fontSize: 10, color: '#f00', marginBottom: 10, width: '100%' }}>
-          Status:{' '}
-          {!hasStarted
-            ? 'READY TO START'
-            : !showFeedback
-              ? 'LISTENING'
-              : isCorrect
-                ? 'CORRECT - AUTO ADVANCE'
-                : 'INCORRECT - RETRY'}
-        </Text>
-        {!hasStarted ? (
-          <View style={styles.button}>
-            <Button title="🎤 開始する" onPress={handleStart} color="#4CAF50" />
-          </View>
-        ) : !showFeedback ? (
-          <>
-            {isListening && (
-              <View style={styles.button}>
-                <Button title="⏸ 一時停止" onPress={stopListening} color="#f44336" />
-              </View>
-            )}
-            {!isListening && recognizedNumber && (
-              <View style={styles.button}>
-                <Button title="🎤 再認識" onPress={handleRetry} color="#FF9800" />
-              </View>
-            )}
-          </>
-        ) : !isCorrect ? (
-          <View style={styles.button}>
-            <Button title="🔄 もう一度挑戦" onPress={handleRetry} color="#FF9800" />
-          </View>
-        ) : null}
-      </View>
+      <View style={styles.buttonContainer}>{renderActionButtons()}</View>
 
       {/* Reset Button */}
       {stats.total > 0 && (
