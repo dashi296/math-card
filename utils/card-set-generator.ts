@@ -109,7 +109,7 @@ export function generateCardsForSet(definition: CardSetDefinition): MathCard[] {
 /**
  * カードリストをシャッフルする
  */
-export function shuffleCards<T>(cards: T[]): T[] {
+export function shuffleCards(cards: MathCard[]): MathCard[] {
   const shuffled = [...cards];
   for (let i = shuffled.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
