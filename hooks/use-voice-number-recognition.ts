@@ -5,7 +5,7 @@ import {
 } from 'expo-speech-recognition';
 import { useCallback, useState } from 'react';
 import { Alert, Platform } from 'react-native';
-import { extractNumber, scoreNumberCandidate } from '@/utils/japanese-number-parser';
+import { extractNumber, scoreNumberCandidate } from '@/utils/japanese-number';
 
 interface VoiceNumberRecognitionState {
   isListening: boolean;
@@ -26,24 +26,39 @@ interface VoiceNumberRecognitionActions {
 type UseVoiceNumberRecognitionReturn = VoiceNumberRecognitionState & VoiceNumberRecognitionActions;
 
 /**
+ * Type definitions for speech recognition results
+ */
+interface SpeechRecognitionTranscript {
+  transcript: string;
+}
+
+interface SpeechRecognitionResult {
+  transcript: string;
+  transcripts?: SpeechRecognitionTranscript[];
+  isFinal?: boolean;
+}
+
+interface BestMatchCandidate {
+  transcript: string;
+  isFinal: boolean;
+  score: number;
+}
+
+/**
  * 複数の認識候補から最も数字として妥当なものを選択
  */
-function selectBestNumberMatch(results: any[]): any | null {
+function selectBestNumberMatch(results: SpeechRecognitionResult[]): BestMatchCandidate | null {
   if (!results || results.length === 0) return null;
 
   // すべての候補を収集してスコアリング
-  const candidates: {
-    transcript: string;
-    isFinal: boolean;
-    score: number;
-  }[] = [];
+  const candidates: BestMatchCandidate[] = [];
 
   results.forEach((result) => {
     const transcripts = result.transcripts || [{ transcript: result.transcript }];
     const isFinal = result.isFinal || false;
 
-    transcripts.forEach((t: any) => {
-      const transcript = t.transcript || t;
+    transcripts.forEach((t) => {
+      const transcript = typeof t === 'string' ? t : t.transcript;
       if (transcript && typeof transcript === 'string') {
         const score = scoreNumberCandidate(transcript);
         candidates.push({ transcript, isFinal, score });

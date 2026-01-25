@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
+import { CARD_TRANSITION_DELAY_MS, VOICE_RECOGNITION_START_DELAY_MS } from '@/constants/timing';
 import type { CardSet } from '@/db/schema';
 import { useCardSetFlashcard } from '@/hooks/use-card-set-flashcard';
 import { useSoundEffect } from '@/hooks/use-sound-effect';
 import { useVoiceNumberRecognition } from '@/hooks/use-voice-number-recognition';
+import { calculateAccuracy } from '@/utils/stats';
 import CardSetSelector from './card-set-selector';
 
 export default function CardSetFlashcard() {
@@ -50,10 +52,8 @@ export default function CardSetFlashcard() {
   useEffect(() => {
     if (showFeedback) {
       if (isCorrect) {
-        console.log('[Sound] Playing correct sound');
         playCorrectSound();
       } else {
-        console.log('[Sound] Playing incorrect sound');
         playIncorrectSound();
       }
     }
@@ -62,16 +62,13 @@ export default function CardSetFlashcard() {
   // Auto-advance to next card if answer is correct
   useEffect(() => {
     if (showFeedback && isCorrect) {
-      console.log('[Auto-advance] Correct answer! Clearing results and moving to next card');
-
       // Clear the recognized number
       clearResults();
 
       // Wait a bit for clearResults to take effect before generating next card
       const timer = setTimeout(() => {
-        console.log('[Auto-advance] Now generating next card');
         nextCard();
-      }, 100);
+      }, CARD_TRANSITION_DELAY_MS);
 
       return () => clearTimeout(timer);
     }
@@ -80,18 +77,15 @@ export default function CardSetFlashcard() {
   // Auto-start voice recognition when a new card is shown (only after initial start)
   useEffect(() => {
     if (hasStarted && currentCard && !showFeedback && !isListening) {
-      console.log('[Auto-start] Starting voice recognition automatically');
-
       // Only reset ref if recognizedNumber has been cleared
       if (!recognizedNumber) {
-        console.log('[Auto-start] Resetting lastCheckedNumberRef to null');
         lastCheckedNumberRef.current = null;
       }
 
       // Small delay to ensure UI is ready
       const timer = setTimeout(() => {
         startListening();
-      }, 500);
+      }, VOICE_RECOGNITION_START_DELAY_MS);
 
       return () => clearTimeout(timer);
     }
@@ -103,7 +97,6 @@ export default function CardSetFlashcard() {
       const answer = Number.parseInt(recognizedNumber, 10);
 
       if (!Number.isNaN(answer)) {
-        console.log('Stopping listening and checking answer:', answer);
         stopListening();
         lastCheckedNumberRef.current = recognizedNumber;
         checkAnswer(answer);
@@ -112,13 +105,11 @@ export default function CardSetFlashcard() {
   }, [recognizedNumber, showFeedback, checkAnswer, stopListening]);
 
   const handleStart = () => {
-    console.log('[Start] User started the session');
     setHasStarted(true);
     startListening();
   };
 
   const handleRetry = () => {
-    console.log('[Retry] User retrying the same card');
     clearResults();
     lastCheckedNumberRef.current = null;
     resetFeedback();
@@ -131,6 +122,43 @@ export default function CardSetFlashcard() {
     lastCheckedNumberRef.current = null;
   };
 
+  const renderActionButtons = () => {
+    if (!hasStarted) {
+      return (
+        <View style={styles.button}>
+          <Button title="🎤 開始する" onPress={handleStart} color="#4CAF50" />
+        </View>
+      );
+    }
+
+    if (!showFeedback) {
+      return (
+        <>
+          {isListening && (
+            <View style={styles.button}>
+              <Button title="⏸ 一時停止" onPress={stopListening} color="#f44336" />
+            </View>
+          )}
+          {!isListening && recognizedNumber && (
+            <View style={styles.button}>
+              <Button title="🎤 再認識" onPress={handleRetry} color="#FF9800" />
+            </View>
+          )}
+        </>
+      );
+    }
+
+    if (!isCorrect) {
+      return (
+        <View style={styles.button}>
+          <Button title="🔄 もう一度挑戦" onPress={handleRetry} color="#FF9800" />
+        </View>
+      );
+    }
+
+    return null;
+  };
+
   // カードセットが選択されていない場合は、選択画面を表示
   if (!selectedCardSet) {
     return <CardSetSelector onSelectCardSet={setSelectedCardSet} selectedCardSetId={null} />;
@@ -138,7 +166,7 @@ export default function CardSetFlashcard() {
 
   // 全てのカードが完了した場合
   if (isCompleted) {
-    const accuracy = stats.total > 0 ? ((stats.correct / stats.total) * 100).toFixed(1) : '0.0';
+    const accuracy = calculateAccuracy(stats.correct, stats.total);
 
     return (
       <View style={styles.container}>
@@ -183,7 +211,7 @@ export default function CardSetFlashcard() {
     );
   }
 
-  const accuracy = stats.total > 0 ? ((stats.correct / stats.total) * 100).toFixed(1) : '0.0';
+  const accuracy = calculateAccuracy(stats.correct, stats.total);
 
   return (
     <View style={styles.container}>
@@ -263,28 +291,7 @@ export default function CardSetFlashcard() {
 
       {/* Action Buttons */}
       <View style={styles.buttonContainer}>
-        {!hasStarted ? (
-          <View style={styles.button}>
-            <Button title="🎤 開始する" onPress={handleStart} color="#4CAF50" />
-          </View>
-        ) : !showFeedback ? (
-          <>
-            {isListening && (
-              <View style={styles.button}>
-                <Button title="⏸ 一時停止" onPress={stopListening} color="#f44336" />
-              </View>
-            )}
-            {!isListening && recognizedNumber && (
-              <View style={styles.button}>
-                <Button title="🎤 再認識" onPress={handleRetry} color="#FF9800" />
-              </View>
-            )}
-          </>
-        ) : !isCorrect ? (
-          <View style={styles.button}>
-            <Button title="🔄 もう一度挑戦" onPress={handleRetry} color="#FF9800" />
-          </View>
-        ) : null}
+        {renderActionButtons()}
 
         <View style={styles.button}>
           <Button
