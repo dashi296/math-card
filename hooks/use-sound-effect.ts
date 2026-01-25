@@ -1,54 +1,23 @@
-import { Audio } from 'expo-av';
-import { useEffect, useRef } from 'react';
+import { AudioModule, useAudioPlayer } from 'expo-audio';
+import { useEffect } from 'react';
+
+// 音声ファイルのソース
+const correctSoundSource = require('@/assets/sounds/correct.mp3');
+const incorrectSoundSource = require('@/assets/sounds/incorrect.mp3');
 
 /**
  * 効果音を再生するカスタムhook
  */
 export function useSoundEffect() {
-  const correctSoundRef = useRef<Audio.Sound | null>(null);
-  const incorrectSoundRef = useRef<Audio.Sound | null>(null);
+  const correctPlayer = useAudioPlayer(correctSoundSource);
+  const incorrectPlayer = useAudioPlayer(incorrectSoundSource);
 
-  // 音声ファイルをロード
+  // オーディオモードを設定（音声認識と併用するため）
   useEffect(() => {
-    let isMounted = true;
-
-    async function loadSounds() {
-      try {
-        // オーディオモードを設定（音声認識と併用するため）
-        await Audio.setAudioModeAsync({
-          playsInSilentModeIOS: true,
-          staysActiveInBackground: false,
-          shouldDuckAndroid: true,
-        });
-
-        // 正解音をロード
-        const { sound: correctSound } = await Audio.Sound.createAsync(
-          require('@/assets/sounds/correct.mp3')
-        );
-        if (isMounted) {
-          correctSoundRef.current = correctSound;
-        }
-
-        // 不正解音をロード
-        const { sound: incorrectSound } = await Audio.Sound.createAsync(
-          require('@/assets/sounds/incorrect.mp3')
-        );
-        if (isMounted) {
-          incorrectSoundRef.current = incorrectSound;
-        }
-      } catch (error) {
-        console.error('[Sound] Failed to load sound effects:', error);
-      }
-    }
-
-    loadSounds();
-
-    // クリーンアップ
-    return () => {
-      isMounted = false;
-      correctSoundRef.current?.unloadAsync();
-      incorrectSoundRef.current?.unloadAsync();
-    };
+    AudioModule.setAudioModeAsync({
+      playsInSilentModeIOS: true,
+      shouldRouteThroughEarpiece: false,
+    });
   }, []);
 
   /**
@@ -56,9 +25,8 @@ export function useSoundEffect() {
    */
   const playCorrectSound = async () => {
     try {
-      if (correctSoundRef.current) {
-        await correctSoundRef.current.replayAsync();
-      }
+      correctPlayer.seekTo(0);
+      correctPlayer.play();
     } catch (error) {
       console.error('[Sound] Failed to play correct sound:', error);
     }
@@ -69,9 +37,8 @@ export function useSoundEffect() {
    */
   const playIncorrectSound = async () => {
     try {
-      if (incorrectSoundRef.current) {
-        await incorrectSoundRef.current.replayAsync();
-      }
+      incorrectPlayer.seekTo(0);
+      incorrectPlayer.play();
     } catch (error) {
       console.error('[Sound] Failed to play incorrect sound:', error);
     }
