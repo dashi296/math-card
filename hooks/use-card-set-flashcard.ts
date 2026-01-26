@@ -3,8 +3,7 @@ import { initializeDatabase } from '@/db/client';
 import type { CardSet } from '@/db/schema';
 import {
   endPracticeSession,
-  getCardSetProgress,
-  startCardSetProgress,
+  resetCardSetProgress,
   startPracticeSession,
   updateCardSetProgress,
 } from '@/db/service';
@@ -52,34 +51,25 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     });
   }, []);
 
-  // 進捗をデータベースから読み込む
-  const loadProgress = useCallback(async (cardSetId: number, cardList: MathCard[]) => {
+  // 進捗をリセットして最初から開始
+  const initializeProgress = useCallback(async (cardSetId: number, cardList: MathCard[]) => {
     try {
-      let progress = await getCardSetProgress(cardSetId);
-
-      // 進捗が存在しない場合は新規作成
-      if (!progress) {
-        progress = await startCardSetProgress(cardSetId);
-      }
+      // 進捗をリセット（存在しない場合は新規作成）
+      const progress = await resetCardSetProgress(cardSetId);
 
       setStats({
-        correct: progress.correctCount,
-        incorrect: progress.incorrectCount,
-        total: progress.correctCount + progress.incorrectCount,
-        currentCardIndex: progress.currentCardIndex,
+        correct: 0,
+        incorrect: 0,
+        total: 0,
+        currentCardIndex: 0,
         totalCards: cardList.length,
         progressId: progress.id,
       });
 
-      // 現在のカードを設定
-      if (progress.currentCardIndex < cardList.length) {
-        setCurrentCard(cardList[progress.currentCardIndex]);
-      } else {
-        // 全てのカードが完了している場合
-        setCurrentCard(null);
-      }
+      // 最初のカードを設定
+      setCurrentCard(cardList[0] || null);
     } catch (error) {
-      console.error('[CardSetFlashcard] Failed to load progress:', error);
+      console.error('[CardSetFlashcard] Failed to initialize progress:', error);
       // エラーが発生しても最初のカードから開始
       setStats({
         correct: 0,
@@ -115,9 +105,9 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
 
     setCards(shuffledCards);
 
-    // 進捗をデータベースから読み込む
-    loadProgress(cardSet.id, shuffledCards);
-  }, [cardSet, loadProgress]);
+    // 進捗をリセットして最初から開始
+    initializeProgress(cardSet.id, shuffledCards);
+  }, [cardSet, initializeProgress]);
 
   // Debug: Track showFeedback changes
   useEffect(() => {
