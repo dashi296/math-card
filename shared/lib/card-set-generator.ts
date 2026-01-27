@@ -89,6 +89,18 @@ export const GRADE2_CARD_SETS: CardSetDefinition[] = [
     totalCards: 81, // 1の段〜9の段の全組み合わせ
   },
   {
+    name: '小学2年生のかけ算（九九、1の段を除く）',
+    grade: 2,
+    operator: '*',
+    answerMin: 2,
+    answerMax: 81,
+    num1Min: 2,
+    num1Max: 9,
+    num2Min: 1,
+    num2Max: 9,
+    totalCards: 72, // 2の段〜9の段の全組み合わせ
+  },
+  {
     name: '小学2年生のかけ算（1〜3の段）',
     grade: 2,
     operator: '*',
