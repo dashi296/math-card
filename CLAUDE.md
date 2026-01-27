@@ -1,275 +1,275 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
+このファイルは、Claude Code (claude.ai/code) がこのリポジトリでコードを操作する際のガイダンスを提供します。
 
-## Project Overview
+## プロジェクト概要
 
-Math Card is a React Native mobile application built with Expo that provides an interactive math learning experience using voice recognition. The app allows users to practice addition problems by speaking their answers in Japanese, with automatic scoring and feedback.
+Math Cardは、音声認識を使用したインタラクティブな数学学習体験を提供するReact Nativeモバイルアプリケーション(Expo使用)です。日本語での音声入力により加算問題を練習し、自動採点とフィードバックを受けることができます。
 
-### Key Features
-- **Voice-Powered Addition Practice**: Random addition problems (1-20 range) with voice input for answers
-- **Real-Time Feedback**: Immediate visual feedback for correct/incorrect answers
-- **Progress Tracking**: Displays statistics including correct answers, incorrect answers, and accuracy percentage
-- **Japanese Voice Recognition**: Converts spoken Japanese numbers to digits using expo-speech-recognition
-- **Smart Recognition**: Uses best-match algorithm to select the most likely number from multiple candidates
+### 主な機能
+- **音声対応の計算練習**: ランダムな計算問題(1-20の範囲)に音声で回答
+- **リアルタイムフィードバック**: 正解/不正解の即座の視覚的フィードバック
+- **進捗追跡**: 正解数、不正解数、正答率などの統計表示
+- **日本語音声認識**: expo-speech-recognitionを使用して日本語の数字を音声認識しデジタル変換
+- **スマート認識**: ベストマッチアルゴリズムで複数の候補から最も可能性の高い数字を選択
 
-## Technology Stack
+## 技術スタック
 
-- **Framework**: Expo 54 with React Native 0.81.5
-- **Router**: Expo Router 6 (file-based routing)
-- **Language**: TypeScript with strict mode
-- **Package Manager**: Bun (fast, modern JavaScript runtime and package manager)
-- **Linter & Formatter**: Biome (fast, modern alternative to ESLint and Prettier)
-- **Navigation**: React Navigation 7 with bottom tabs
-- **Voice Recognition**: expo-speech-recognition (Expo official package)
-- **New Architecture**: Enabled (React Native's new architecture)
-- **Experiments**: Typed routes and React Compiler enabled
+- **フレームワーク**: Expo 54 + React Native 0.81.5
+- **ルーター**: Expo Router 6(ファイルベースルーティング)
+- **言語**: TypeScript(strict mode有効)
+- **パッケージマネージャー**: Bun(高速で現代的なJavaScriptランタイム/パッケージマネージャー)
+- **リンター & フォーマッター**: Biome(ESLintとPrettierの高速で現代的な代替)
+- **ナビゲーション**: React Navigation 7 + ボトムタブ
+- **音声認識**: expo-speech-recognition(Expo公式パッケージ)
+- **New Architecture**: 有効(React Nativeの新アーキテクチャ)
+- **実験的機能**: 型付きルートとReact Compilerが有効
 
-## Development Commands
+## 開発コマンド
 
-This project uses **Bun** as its package manager for faster installation and execution.
+このプロジェクトはパッケージマネージャーとして**Bun**を使用しています。
 
 ```bash
-# Install dependencies
+# 依存関係のインストール
 bun install
 
-# Start development server
+# 開発サーバーの起動
 bun start
 
-# Run on iOS
+# iOSで実行
 bun ios
 
-# Run on Android
+# Androidで実行
 bun android
 
-# Run on web
+# Webで実行
 bun web
 
-# Lint code (with Biome)
+# コードのリント(Biome使用)
 bun lint
 
-# Auto-fix lint errors
+# リントエラーの自動修正
 bun lint:fix
 
-# Format code
+# コードのフォーマット
 bun format
 
-# Reset project (removes example code)
+# プロジェクトのリセット(サンプルコードの削除)
 bun reset-project
 ```
 
-## Project Structure
+## プロジェクト構造
 
-This project follows **Feature-Sliced Design (FSD)** architecture with two main layers:
-- `features/` - Domain-specific features (business logic organized by feature)
-- `shared/` - Domain-agnostic code (reusable utilities, UI components, config)
+このプロジェクトは**Feature-Sliced Design (FSD)** アーキテクチャに従い、2つの主要レイヤーで構成されています:
+- `features/` - ドメイン固有の機能(機能別に整理されたビジネスロジック)
+- `shared/` - ドメインに依存しないコード(再利用可能なユーティリティ、UIコンポーネント、設定)
 
-### File-Based Routing (Expo Router)
-- `app/_layout.tsx` - Root layout with theme provider and Stack navigator
-- `app/(tabs)/_layout.tsx` - Tab layout with Home and Explore tabs
-- `app/(tabs)/index.tsx` - Home screen with math flashcard feature
-- `app/(tabs)/explore.tsx` - Explore screen
-- `app/modal.tsx` - Modal screen example
+### ファイルベースルーティング (Expo Router)
+- `app/_layout.tsx` - テーマプロバイダーとStackナビゲーターを含むルートレイアウト
+- `app/(tabs)/_layout.tsx` - HomeとExploreタブを含むタブレイアウト
+- `app/(tabs)/index.tsx` - 数学フラッシュカード機能を含むホーム画面
+- `app/(tabs)/explore.tsx` - Explore画面
+- `app/modal.tsx` - モーダル画面の例
 
-Routes are generated automatically from the file structure. Typed routes are enabled for type-safe navigation.
+ルートはファイル構造から自動生成されます。型安全なナビゲーションのための型付きルートが有効です。
 
-### Features Layer (`features/`)
+### Featuresレイヤー (`features/`)
 
-Domain-specific features organized by business capability:
+ビジネス機能別に整理されたドメイン固有の機能:
 
 #### `features/math-practice/`
-Random math problem generation and practice mode.
-- **ui/math-flashcard.tsx** - Main math flashcard component
-  - Displays random addition problems (1-20 range)
-  - Accepts voice input for answers
-  - Provides immediate feedback (correct/incorrect)
-  - Tracks statistics and auto-advances
-- **model/use-math-flashcard.ts** - Business logic hook
-  - Generates random problems (addition, subtraction, multiplication, division)
-  - Manages user answers and correctness state
-  - Tracks statistics (correct, incorrect, total, accuracy)
-  - Database integration for session tracking
+ランダムな数学問題の生成と練習モード。
+- **ui/math-flashcard.tsx** - メインの数学フラッシュカードコンポーネント
+  - ランダムな加算問題(1-20の範囲)を表示
+  - 音声入力で回答を受け付け
+  - 即座のフィードバック(正解/不正解)を提供
+  - 統計を追跡し自動で次の問題に進む
+- **model/use-math-flashcard.ts** - ビジネスロジックhook
+  - ランダムな問題を生成(加算、減算、乗算、除算)
+  - ユーザーの回答と正誤状態を管理
+  - 統計(正解、不正解、合計、正答率)を追跡
+  - セッション追跡のためのデータベース統合
 
 #### `features/card-sets/`
-Pre-defined card set management and practice mode.
-- **ui/card-set-flashcard.tsx** - Card set practice component
-  - Displays problems from selected card set
-  - Voice recognition for answers
-  - Progress tracking through card set
-  - Completion screen with statistics
-- **ui/card-set-selector.tsx** - Card set selection interface
-  - Lists available card sets by grade level
-  - Shows card set details (operator, range, count)
-  - Initializes default card sets from database
-- **model/use-card-set-flashcard.ts** - Card set practice logic
-  - Loads and shuffles card sets
-  - Tracks progress through card set
-  - Database integration for progress persistence
+事前定義されたカードセットの管理と練習モード。
+- **ui/card-set-flashcard.tsx** - カードセット練習コンポーネント
+  - 選択されたカードセットから問題を表示
+  - 回答のための音声認識
+  - カードセット内の進捗追跡
+  - 統計を含む完了画面
+- **ui/card-set-selector.tsx** - カードセット選択インターフェース
+  - 学年別に利用可能なカードセットをリスト表示
+  - カードセットの詳細(演算子、範囲、枚数)を表示
+  - データベースからデフォルトのカードセットを初期化
+- **model/use-card-set-flashcard.ts** - カードセット練習ロジック
+  - カードセットの読み込みとシャッフル
+  - カードセット内の進捗追跡
+  - 進捗永続化のためのデータベース統合
 
 #### `features/voice-recognition/`
-Japanese voice input and number recognition.
-- **ui/voice-number-recognition.tsx** - Standalone voice UI component
-  - Voice recognition interface and results display
-  - Supports continuous recognition mode
-  - Shows interim results for real-time feedback
-- **model/use-voice-number-recognition.ts** - Voice recognition hook
-  - Handles Japanese voice input using expo-speech-recognition
-  - Implements best-match selection algorithm
-  - Auto-restart mode for continuous recognition
-  - Configuration: ja-JP, maxAlternatives: 10, continuous mode
-- **lib/japanese-number/** - Japanese number parsing utilities
-  - `index.ts` - Main exports and scoring function
-  - `parser.ts` - Number extraction from Japanese text
-  - `constants.ts` - Japanese number mappings and scoring weights
-  - `helpers.ts` - String similarity calculation
-  - `fuzzy-matching.ts` - Phonetic similarity matching
-  - `types.ts` - TypeScript type definitions
+日本語音声入力と数字認識。
+- **ui/voice-number-recognition.tsx** - スタンドアロン音声UIコンポーネント
+  - 音声認識インターフェースと結果表示
+  - 継続認識モードをサポート
+  - リアルタイムフィードバックのための暫定結果を表示
+- **model/use-voice-number-recognition.ts** - 音声認識hook
+  - expo-speech-recognitionを使用した日本語音声入力処理
+  - ベストマッチ選択アルゴリズムの実装
+  - 継続認識のための自動再開モード
+  - 設定: ja-JP、maxAlternatives: 10、continuous mode
+- **lib/japanese-number/** - 日本語数字解析ユーティリティ
+  - `index.ts` - メインのエクスポートとスコアリング関数
+  - `parser.ts` - 日本語テキストからの数字抽出
+  - `constants.ts` - 日本語数字のマッピングとスコアリングウェイト
+  - `helpers.ts` - 文字列類似度計算
+  - `fuzzy-matching.ts` - 音韻的類似度マッチング
+  - `types.ts` - TypeScript型定義
 
-### Shared Layer (`shared/`)
+### Sharedレイヤー (`shared/`)
 
-Domain-agnostic reusable code:
+ドメインに依存しない再利用可能なコード:
 
 #### `shared/ui/`
-Reusable UI components:
-- `themed-text.tsx`, `themed-view.tsx` - Theme-aware components
-- `parallax-scroll-view.tsx` - Parallax header scroll view
-- `collapsible.tsx` - Expandable content section
-- `icon-symbol.tsx` - SF Symbols icons (iOS/Android)
-- `external-link.tsx` - In-app browser links
-- `haptic-tab.tsx` - Tab with haptic feedback
-- `hello-wave.tsx` - Animated wave component
+再利用可能なUIコンポーネント:
+- `themed-text.tsx`, `themed-view.tsx` - テーマ対応コンポーネント
+- `parallax-scroll-view.tsx` - パララックスヘッダースクロールビュー
+- `collapsible.tsx` - 展開可能なコンテンツセクション
+- `icon-symbol.tsx` - SF Symbolsアイコン(iOS/Android)
+- `external-link.tsx` - アプリ内ブラウザリンク
+- `haptic-tab.tsx` - 触覚フィードバック付きタブ
+- `hello-wave.tsx` - アニメーション波コンポーネント
 
 #### `shared/lib/`
-Shared hooks and utilities:
-- `use-color-scheme.ts` - Color scheme detection hook
-- `use-theme-color.ts` - Theme color resolution hook
-- `use-sound-effect.ts` - Sound effect playback hook
-- `stats.ts` - Statistical calculation utilities
-- `card-set-generator.ts` - Card set generation and validation
+共有フックとユーティリティ:
+- `use-color-scheme.ts` - カラースキーム検出hook
+- `use-theme-color.ts` - テーマカラー解決hook
+- `use-sound-effect.ts` - 効果音再生hook
+- `stats.ts` - 統計計算ユーティリティ
+- `card-set-generator.ts` - カードセット生成と検証
 
 #### `shared/config/`
-Application configuration:
-- `theme.ts` - Theme colors and fonts for light/dark mode
-- `timing.ts` - Timing constants (delays, transitions)
+アプリケーション設定:
+- `theme.ts` - ライト/ダークモードのテーマカラーとフォント
+- `timing.ts` - タイミング定数(遅延、トランジション)
 
 #### `shared/data/db/`
-Database layer (Drizzle ORM + expo-sqlite):
-- `client.ts` - Database client and initialization
-- `schema.ts` - Table schemas and type definitions
-- `service.ts` - Database operations (CRUD for sessions, card sets, progress)
+データベースレイヤー (Drizzle ORM + expo-sqlite):
+- `client.ts` - データベースクライアントと初期化
+- `schema.ts` - テーブルスキーマと型定義
+- `service.ts` - データベース操作(セッション、カードセット、進捗のCRUD)
 
-### Other Directories
-- `assets/` - Images, fonts, and other static assets
+### その他のディレクトリ
+- `assets/` - 画像、フォント、その他の静的アセット
 
-## Platform-Specific Configuration
+## プラットフォーム固有の設定
 
 ### iOS (app.json)
-- Microphone permission: NSMicrophoneUsageDescription
-- Speech recognition permission: NSSpeechRecognitionUsageDescription
+- マイク権限: NSMicrophoneUsageDescription
+- 音声認識権限: NSSpeechRecognitionUsageDescription
 - Bundle ID: com.dashi296.mathcard
-- Supports tablets
+- タブレット対応
 
 ### Android (app.json)
-- Permissions: RECORD_AUDIO
-- Package: com.dashi296.mathcard
-- Edge-to-edge UI enabled
-- Predictive back gesture disabled
+- パーミッション: RECORD_AUDIO
+- パッケージ: com.dashi296.mathcard
+- Edge-to-edge UI有効
+- 予測的な戻るジェスチャー無効
 
-## Path Aliases
+## パスエイリアス
 
-The project uses path aliases configured in `tsconfig.json`:
+プロジェクトは`tsconfig.json`で設定されたパスエイリアスを使用しています:
 
 ```typescript
-// Root alias (for assets, app, etc.)
+// ルートエイリアス(assets、appなど用)
 import logo from '@/assets/images/logo.png';
 
-// Features layer alias
+// Featuresレイヤーエイリアス
 import { useVoiceNumberRecognition } from '@/features/voice-recognition/model/use-voice-number-recognition';
 import MathFlashcard from '@/features/math-practice/ui/math-flashcard';
 import CardSetSelector from '@/features/card-sets/ui/card-set-selector';
 
-// Shared layer alias
+// Sharedレイヤーエイリアス
 import { ThemedText } from '@/shared/ui/themed-text';
 import { useThemeColor } from '@/shared/lib/use-theme-color';
 import { Colors } from '@/shared/config/theme';
 import { initializeDatabase } from '@/shared/data/db/client';
 
-// Within same feature: use relative imports
-// In features/math-practice/ui/math-flashcard.tsx:
+// 同一feature内: 相対インポートを使用
+// features/math-practice/ui/math-flashcard.tsx内:
 import { useMathFlashcard } from '../model/use-math-flashcard';
 
-// Cross-feature: use absolute imports with @/features/*
-// In features/math-practice/ui/math-flashcard.tsx:
+// feature間: @/features/*を使用した絶対インポート
+// features/math-practice/ui/math-flashcard.tsx内:
 import { useVoiceNumberRecognition } from '@/features/voice-recognition/model/use-voice-number-recognition';
 ```
 
-### Import Guidelines
-- **Within same feature**: Use relative imports (`../model/...`)
-- **Cross-feature**: Use absolute imports with `@/features/*`
-- **Shared layer**: Always use absolute imports with `@/shared/*`
-- **Root (assets, app)**: Use `@/*` alias
+### インポートガイドライン
+- **同一feature内**: 相対インポートを使用(`../model/...`)
+- **feature間**: `@/features/*`を使用した絶対インポート
+- **Sharedレイヤー**: 常に`@/shared/*`を使用した絶対インポート
+- **ルート(assets、app)**: `@/*`エイリアスを使用
 
-## Voice Recognition Architecture
+## 音声認識アーキテクチャ
 
-The voice recognition feature (`features/voice-recognition/`) is architected with clean separation of concerns:
+音声認識機能(`features/voice-recognition/`)は、関心事の明確な分離を持つアーキテクチャで構成されています:
 
-### Model Layer (`model/use-voice-number-recognition.ts`)
-- Manages voice recognition state and lifecycle
-- Handles expo-speech-recognition events (start, end, result, error)
-- Implements best-match selection algorithm:
-  - Receives multiple candidates via `maxAlternatives: 10`
-  - Scores each candidate based on number-related keywords
-  - Automatically selects the most likely number
-- Supports continuous mode for rapid input
-- Configuration:
+### Modelレイヤー (`model/use-voice-number-recognition.ts`)
+- 音声認識状態とライフサイクルを管理
+- expo-speech-recognitionイベント(start、end、result、error)を処理
+- ベストマッチ選択アルゴリズムの実装:
+  - `maxAlternatives: 10`で複数の候補を受信
+  - 数字関連キーワードに基づいて各候補をスコアリング
+  - 最も可能性の高い数字を自動選択
+- 迅速な入力のための継続モードをサポート
+- 設定:
   - lang: "ja-JP"
-  - interimResults: true (real-time feedback)
-  - maxAlternatives: 10 (for best-match selection)
-  - continuous: true (better short pronunciation recognition)
-  - contextualStrings: extensive list of Japanese numbers
-  - iOS optimization: iosTaskHint: "dictation"
+  - interimResults: true(リアルタイムフィードバック)
+  - maxAlternatives: 10(ベストマッチ選択用)
+  - continuous: true(短い発音認識の改善)
+  - contextualStrings: 日本語数字の広範なリスト
+  - iOS最適化: iosTaskHint: "dictation"
 
-### Library Layer (`lib/japanese-number/`)
-- Pure functions for Japanese number parsing
-- Handles complex multi-digit numbers (e.g., "二千三百四十五" → "2345")
-- Supports multiple formats: hiragana, katakana, kanji, Arabic numerals
-- Scoring system for candidate selection:
-  - Number keywords: +10 points each
-  - Convertible to number: +50 points
-  - Contains Arabic numerals: +30 points
-  - Single character (non-numeric): -20 points
-  - Noise words (です, は, etc.): -15 points each
-- Fuzzy matching for phonetically similar Japanese pronunciations
+### Libraryレイヤー (`lib/japanese-number/`)
+- 日本語数字解析用の純粋関数
+- 複雑な複数桁の数字を処理(例: "二千三百四十五" → "2345")
+- 複数形式をサポート: ひらがな、カタカナ、漢字、アラビア数字
+- 候補選択用のスコアリングシステム:
+  - 数字キーワード: 各+10ポイント
+  - 数字に変換可能: +50ポイント
+  - アラビア数字を含む: +30ポイント
+  - 単一文字(非数字): -20ポイント
+  - ノイズワード(です、は、など): 各-15ポイント
+- 音韻的に類似した日本語発音のファジーマッチング
 
-### UI Layer (`ui/voice-number-recognition.tsx`)
-- Presentation layer only
-- Displays recognition status, interim results, and final results
-- Provides user controls (start, stop, continuous mode, clear)
-- No business logic - delegates to custom hook
+### UIレイヤー (`ui/voice-number-recognition.tsx`)
+- プレゼンテーションレイヤーのみ
+- 認識状態、暫定結果、最終結果を表示
+- ユーザーコントロールを提供(開始、停止、継続モード、クリア)
+- ビジネスロジックなし - カスタムhookに委譲
 
-## Theme System
+## テーマシステム
 
-The app uses React Navigation's theme provider with:
-- Light/Dark mode support via `useColorScheme` hook (`shared/lib/use-color-scheme.ts`)
-- Theme colors and fonts defined in `shared/config/theme.ts`
-- Themed components (`shared/ui/themed-*.tsx`) that automatically adapt to color scheme
-- Color resolution via `useThemeColor` hook for dynamic theming
+アプリは以下のReact Navigationのテーマプロバイダーを使用しています:
+- `useColorScheme` hook(`shared/lib/use-color-scheme.ts`)によるライト/ダークモードサポート
+- `shared/config/theme.ts`で定義されたテーマカラーとフォント
+- カラースキームに自動適応するテーマ付きコンポーネント(`shared/ui/themed-*.tsx`)
+- 動的テーマ設定のための`useThemeColor` hookによるカラー解決
 
-## FSD Architecture Benefits
+## FSDアーキテクチャの利点
 
-The Feature-Sliced Design architecture provides:
-- **Modularity**: Features are self-contained and can be developed independently
-- **Scalability**: Easy to add new features without affecting existing ones
-- **Maintainability**: Clear separation between business logic (features) and reusable code (shared)
-- **Discoverability**: Logical organization makes it easy to find code
-- **Import Control**: Clear import patterns prevent circular dependencies
-  - Features can depend on shared layer
-  - Shared layer is independent (no feature imports)
-  - Features should minimize cross-feature dependencies
+Feature-Sliced Designアーキテクチャは以下を提供します:
+- **モジュール性**: 機能は自己完結的で独立して開発可能
+- **スケーラビリティ**: 既存機能に影響を与えずに新機能を追加しやすい
+- **保守性**: ビジネスロジック(features)と再利用可能なコード(shared)の明確な分離
+- **発見可能性**: 論理的な構成によりコードを見つけやすい
+- **インポート制御**: 明確なインポートパターンにより循環依存を防止
+  - Featuresはsharedレイヤーに依存可能
+  - Sharedレイヤーは独立(featureのインポートなし)
+  - Features間の依存は最小限に抑えるべき
 
-## Development Notes
+## 開発ノート
 
-- The app uses React Native's New Architecture (enabled in app.json)
-- React Compiler experiment is enabled for optimizations
-- TypeScript is configured with strict mode
-- All permissions for voice recognition must be properly configured in app.json for both platforms
+- アプリはReact NativeのNew Architecture(app.jsonで有効化)を使用
+- React Compilerの実験機能が最適化のために有効
+- TypeScriptはstrict modeで設定
+- 音声認識のすべてのパーミッションは、両プラットフォームのapp.jsonで適切に設定する必要があります
