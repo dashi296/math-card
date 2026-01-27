@@ -74,6 +74,58 @@ export const GRADE1_CARD_SETS: CardSetDefinition[] = [
   },
 ];
 
+// 小学2年生のカードセット定義（九九）
+export const GRADE2_CARD_SETS: CardSetDefinition[] = [
+  {
+    name: '小学2年生のかけ算（九九）',
+    grade: 2,
+    operator: '*',
+    answerMin: 1,
+    answerMax: 81,
+    num1Min: 1,
+    num1Max: 9,
+    num2Min: 1,
+    num2Max: 9,
+    totalCards: 81, // 1の段〜9の段の全組み合わせ
+  },
+  {
+    name: '小学2年生のかけ算（1〜3の段）',
+    grade: 2,
+    operator: '*',
+    answerMin: 1,
+    answerMax: 27,
+    num1Min: 1,
+    num1Max: 3,
+    num2Min: 1,
+    num2Max: 9,
+    totalCards: 27,
+  },
+  {
+    name: '小学2年生のかけ算（4〜6の段）',
+    grade: 2,
+    operator: '*',
+    answerMin: 4,
+    answerMax: 54,
+    num1Min: 4,
+    num1Max: 6,
+    num2Min: 1,
+    num2Max: 9,
+    totalCards: 27,
+  },
+  {
+    name: '小学2年生のかけ算（7〜9の段）',
+    grade: 2,
+    operator: '*',
+    answerMin: 7,
+    answerMax: 81,
+    num1Min: 7,
+    num1Max: 9,
+    num2Min: 1,
+    num2Max: 9,
+    totalCards: 27,
+  },
+];
+
 /**
  * カードセット定義に基づいて全ての問題カードを生成
  */
@@ -98,6 +150,28 @@ export function generateCardsForSet(definition: CardSetDefinition): MathCard[] {
         const answer = num1 - num2;
         if (answer >= answerMin && answer <= answerMax) {
           cards.push({ num1, num2, operator, answer });
+        }
+      }
+    }
+  } else if (operator === '*') {
+    // 掛け算の場合
+    for (let num1 = num1Min; num1 <= num1Max; num1++) {
+      for (let num2 = num2Min; num2 <= num2Max; num2++) {
+        const answer = num1 * num2;
+        if (answer >= answerMin && answer <= answerMax) {
+          cards.push({ num1, num2, operator, answer });
+        }
+      }
+    }
+  } else if (operator === '/') {
+    // 割り算の場合
+    for (let num1 = num1Min; num1 <= num1Max; num1++) {
+      for (let num2 = num2Min; num2 <= num2Max; num2++) {
+        if (num2 !== 0) {
+          const answer = num1 / num2;
+          if (Number.isInteger(answer) && answer >= answerMin && answer <= answerMax) {
+            cards.push({ num1, num2, operator, answer });
+          }
         }
       }
     }
