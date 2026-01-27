@@ -3,7 +3,7 @@ import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { initializeDatabase } from '@/shared/data/db/client';
 import type { CardSet } from '@/shared/data/db/schema';
 import { getAllCardSets, saveCardSet } from '@/shared/data/db/service';
-import { GRADE1_CARD_SETS } from '@/shared/lib/card-set-generator';
+import { GRADE1_CARD_SETS, GRADE2_CARD_SETS } from '@/shared/lib/card-set-generator';
 
 interface CardSetSelectorProps {
   onSelectCardSet: (cardSet: CardSet) => void;
@@ -34,10 +34,22 @@ export default function CardSetSelector({
   // デフォルトのカードセットを初期化
   const initializeDefaultCardSets = useCallback(async () => {
     try {
-      for (const cardSet of GRADE1_CARD_SETS) {
-        await saveCardSet(cardSet);
+      // 既存のカードセットを取得
+      const existingCardSets = await getAllCardSets();
+      const existingNames = new Set(existingCardSets.map(cs => cs.name));
+
+      // まだ存在しないカードセットのみを追加
+      const allDefaultSets = [...GRADE1_CARD_SETS, ...GRADE2_CARD_SETS];
+      let addedCount = 0;
+
+      for (const cardSet of allDefaultSets) {
+        if (!existingNames.has(cardSet.name)) {
+          await saveCardSet(cardSet);
+          addedCount++;
+        }
       }
-      console.log('[CardSetSelector] Default card sets initialized');
+
+      console.log(`[CardSetSelector] Added ${addedCount} new card sets`);
     } catch (error) {
       console.error('[CardSetSelector] Failed to initialize default card sets:', error);
     }
@@ -48,15 +60,11 @@ export default function CardSetSelector({
     try {
       setLoading(true);
 
-      let sets = await getAllCardSets();
+      // デフォルトのカードセットを初期化（既存のものはスキップ）
+      await initializeDefaultCardSets();
 
-      // カードセットが存在しない場合は、デフォルトのカードセットを作成
-      if (sets.length === 0) {
-        console.log('[CardSetSelector] No card sets found, creating defaults...');
-        await initializeDefaultCardSets();
-        sets = await getAllCardSets();
-      }
-
+      // カードセットを取得
+      const sets = await getAllCardSets();
       setCardSets(sets);
     } catch (error) {
       console.error('[CardSetSelector] Failed to load card sets:', error);
@@ -103,7 +111,10 @@ export default function CardSetSelector({
           <View style={styles.cardSetInfo}>
             <Text style={styles.cardSetName}>{cardSet.name}</Text>
             <Text style={styles.cardSetDetails}>
-              {cardSet.operator === '+' ? '足し算' : '引き算'} | 答え: {cardSet.answerMin}~
+              {cardSet.operator === '+' && '足し算'}
+              {cardSet.operator === '-' && '引き算'}
+              {cardSet.operator === '*' && '掛け算'}
+              {cardSet.operator === '/' && '割り算'} | 答え: {cardSet.answerMin}~
               {cardSet.answerMax} | {cardSet.totalCards}枚
             </Text>
           </View>

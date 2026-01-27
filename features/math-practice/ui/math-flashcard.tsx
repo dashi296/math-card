@@ -185,7 +185,7 @@ export default function MathFlashcard() {
       {/* Problem Section */}
       <View style={styles.problemContainer}>
         <Text style={styles.problemText}>
-          {problem.num1} {problem.operator} {problem.num2} = ?
+          {problem.num1} {problem.operator === '*' ? '×' : problem.operator} {problem.num2} = ?
         </Text>
       </View>
 
