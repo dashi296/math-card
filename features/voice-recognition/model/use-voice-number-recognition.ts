@@ -5,7 +5,7 @@ import {
 } from 'expo-speech-recognition';
 import { useCallback, useState } from 'react';
 import { Alert, Platform } from 'react-native';
-import { extractNumber, scoreNumberCandidate } from '@/utils/japanese-number';
+import { extractNumber, scoreNumberCandidate } from '../lib/japanese-number';
 
 interface VoiceNumberRecognitionState {
   isListening: boolean;

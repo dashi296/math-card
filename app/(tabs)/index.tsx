@@ -1,11 +1,11 @@
 import { Image } from 'expo-image';
 import { useState } from 'react';
 import { Button, StyleSheet, View } from 'react-native';
-import CardSetFlashcard from '@/components/card-set-flashcard';
-import MathFlashcard from '@/components/math-flashcard';
-import ParallaxScrollView from '@/components/parallax-scroll-view';
-import { ThemedText } from '@/components/themed-text';
-import { ThemedView } from '@/components/themed-view';
+import CardSetFlashcard from '@/features/card-sets/ui/card-set-flashcard';
+import MathFlashcard from '@/features/math-practice/ui/math-flashcard';
+import ParallaxScrollView from '@/shared/ui/parallax-scroll-view';
+import { ThemedText } from '@/shared/ui/themed-text';
+import { ThemedView } from '@/shared/ui/themed-view';
 
 type Mode = 'card-set' | 'random';
 

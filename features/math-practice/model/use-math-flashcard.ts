@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { initializeDatabase } from '@/db/client';
-import type { OperatorType } from '@/db/schema';
-import { endPracticeSession, startPracticeSession } from '@/db/service';
+import { initializeDatabase } from '@/shared/data/db/client';
+import type { OperatorType } from '@/shared/data/db/schema';
+import { endPracticeSession, startPracticeSession } from '@/shared/data/db/service';
 
 export interface MathProblem {
   num1: number;
