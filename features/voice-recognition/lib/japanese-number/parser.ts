@@ -138,11 +138,21 @@ export function extractNumber(text: string): string {
     return parsedNumber.toString();
   }
 
-  // 単純なマッチング（後方互換）
+  // 単純なマッチング（最長マッチを優先）
+  let longestMatch: { key: string; value: number; length: number } | null = null;
+
   for (const [key, value] of Object.entries(kanjiToNum)) {
-    if (processedText.includes(key.toLowerCase())) {
-      return value.toString();
+    const lowerKey = key.toLowerCase();
+    if (processedText.includes(lowerKey)) {
+      // より長いマッチを優先
+      if (!longestMatch || lowerKey.length > longestMatch.length) {
+        longestMatch = { key: lowerKey, value, length: lowerKey.length };
+      }
     }
+  }
+
+  if (longestMatch) {
+    return longestMatch.value.toString();
   }
 
   return text;

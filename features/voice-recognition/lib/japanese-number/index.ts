@@ -71,6 +71,10 @@ export function scoreNumberCandidate(text: string): number {
   const extractedNumber = extractNumber(text);
   if (extractedNumber !== text && extractedNumber.match(/^\d+$/)) {
     score += SCORE.NUMBER_CONVERSION;
+    // 変換後の数字が2桁以上の場合、さらに追加ボーナス
+    if (extractedNumber.length >= 2) {
+      score += SCORE.COMPOUND_NUMBER_BONUS;
+    }
   }
 
   // アラビア数字が含まれている場合はさらに加点
@@ -78,9 +82,25 @@ export function scoreNumberCandidate(text: string): number {
     score += SCORE.ARABIC_NUMERAL;
   }
 
+  // 複合数字（十、百、千）を含む場合は大きく加点
+  const compoundUnits = ['じゅう', 'ジュウ', '十', 'ひゃく', 'ヒャク', '百', 'せん', 'セン', '千'];
+  for (const unit of compoundUnits) {
+    if (lowerText.includes(unit.toLowerCase())) {
+      score += SCORE.COMPOUND_NUMBER_BONUS;
+    }
+  }
+
+  // 長い表現を優先（文字数に応じたボーナス）
+  score += text.length * SCORE.LENGTH_BONUS_PER_CHAR;
+
   // テキストが短すぎる場合は減点
   if (text.length === 1 && !text.match(/\d/)) {
     score += SCORE.SINGLE_CHAR_PENALTY;
+  }
+
+  // 2文字以下で数字でない場合は強いペナルティ
+  if (text.length <= 2 && !text.match(/\d/) && !compoundUnits.some(u => lowerText.includes(u.toLowerCase()))) {
+    score += SCORE.SHORT_TEXT_PENALTY;
   }
 
   // 余計な単語が含まれている場合は減点

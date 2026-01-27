@@ -152,6 +152,55 @@ export function useMathFlashcard(
     [] // Empty deps - stable function reference
   );
 
+  // Check multiple candidate answers
+  const checkAnswerWithCandidates = useCallback(
+    async (candidates: number[]) => {
+      const currentProblem = problemRef.current;
+      console.log('checkAnswerWithCandidates called:', { candidates, currentProblem });
+      if (!currentProblem) {
+        console.log('No problem available!');
+        return;
+      }
+
+      // すべての候補の中に正解があるかチェック
+      const correctCandidate = candidates.find((c) => c === currentProblem.answer);
+      const hasCorrectAnswer = correctCandidate !== undefined;
+
+      // 表示用には最初の候補を使用（または正解の候補があればそれを使用）
+      const displayAnswer = hasCorrectAnswer ? correctCandidate : candidates[0];
+
+      console.log('[checkAnswerWithCandidates] Candidates:', candidates);
+      console.log('[checkAnswerWithCandidates] Correct answer:', currentProblem.answer);
+      console.log('[checkAnswerWithCandidates] Has correct answer:', hasCorrectAnswer);
+      console.log('[checkAnswerWithCandidates] Display answer:', displayAnswer);
+
+      setUserAnswer(displayAnswer);
+      setIsCorrect(hasCorrectAnswer);
+      setShowFeedback(true);
+      console.log('Set showFeedback to true, correct:', hasCorrectAnswer);
+
+      setStats((prev) => ({
+        correct: prev.correct + (hasCorrectAnswer ? 1 : 0),
+        incorrect: prev.incorrect + (hasCorrectAnswer ? 0 : 1),
+        total: prev.total + 1,
+      }));
+
+      // データベースにセッション結果を保存
+      if (currentSessionIdRef.current !== null) {
+        try {
+          const updatedSession = await endPracticeSession(currentSessionIdRef.current, {
+            isCorrect: hasCorrectAnswer,
+            userAnswer: displayAnswer,
+          });
+          console.log('[Database] Session ended:', updatedSession);
+        } catch (error) {
+          console.error('[Database] Failed to end session:', error);
+        }
+      }
+    },
+    [] // Empty deps - stable function reference
+  );
+
   // Move to next problem
   const nextProblem = useCallback(() => {
     console.log('[nextProblem] Called');
@@ -184,6 +233,7 @@ export function useMathFlashcard(
     stats,
     showFeedback,
     checkAnswer,
+    checkAnswerWithCandidates,
     nextProblem,
     resetStats,
     resetFeedback,
