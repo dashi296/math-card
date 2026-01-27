@@ -7,6 +7,7 @@
 import {
   FUZZY_MATCH_THRESHOLD,
   kanjiToNum,
+  MISRECOGNITION_MAP,
   NOISE_WORDS,
   phoneticSimilarity,
   SCORE,
@@ -49,6 +50,14 @@ const NUMBER_KEYWORDS = generateNumberKeywords();
 export function scoreNumberCandidate(text: string): number {
   let score = 0;
   const lowerText = text.toLowerCase();
+
+  // 誤認識パターンにマッチする場合は高スコアを付与
+  for (const misrecognizedWord of Object.keys(MISRECOGNITION_MAP)) {
+    if (text === misrecognizedWord || text.includes(misrecognizedWord)) {
+      score += SCORE.NUMBER_CONVERSION; // 数字変換可能と同等のスコア
+      break;
+    }
+  }
 
   // 数字キーワードの出現回数をスコアに加算
   for (const keyword of NUMBER_KEYWORDS) {
@@ -98,15 +107,18 @@ export function scoreNumberCandidate(text: string): number {
     score += SCORE.SINGLE_CHAR_PENALTY;
   }
 
-  // 2文字以下で数字でない場合は強いペナルティ
-  if (text.length <= 2 && !text.match(/\d/) && !compoundUnits.some(u => lowerText.includes(u.toLowerCase()))) {
+  // 2文字以下で数字でない場合は強いペナルティ（ただし誤認識パターンは除外）
+  const isMisrecognized = Object.keys(MISRECOGNITION_MAP).some(word => text.includes(word));
+  if (text.length <= 2 && !text.match(/\d/) && !compoundUnits.some(u => lowerText.includes(u.toLowerCase())) && !isMisrecognized) {
     score += SCORE.SHORT_TEXT_PENALTY;
   }
 
-  // 余計な単語が含まれている場合は減点
-  for (const word of NOISE_WORDS) {
-    if (lowerText.includes(word)) {
-      score += SCORE.NOISE_WORD_PENALTY;
+  // 余計な単語が含まれている場合は減点（ただし誤認識パターンは除外）
+  if (!isMisrecognized) {
+    for (const word of NOISE_WORDS) {
+      if (lowerText.includes(word)) {
+        score += SCORE.NOISE_WORD_PENALTY;
+      }
     }
   }
 
