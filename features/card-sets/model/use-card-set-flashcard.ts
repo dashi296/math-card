@@ -167,6 +167,70 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     [stats, cardSet]
   );
 
+  // 複数の候補から答えをチェックする
+  const checkAnswerWithCandidates = useCallback(
+    async (candidates: number[]) => {
+      const card = currentCardRef.current;
+      console.log('checkAnswerWithCandidates called:', { candidates, card });
+      if (!card) {
+        console.log('No card available!');
+        return;
+      }
+
+      // すべての候補の中に正解があるかチェック
+      const correctCandidate = candidates.find((c) => c === card.answer);
+      const hasCorrectAnswer = correctCandidate !== undefined;
+
+      // 表示用には最初の候補を使用（または正解の候補があればそれを使用）
+      const displayAnswer = hasCorrectAnswer ? correctCandidate : candidates[0];
+
+      console.log('[checkAnswerWithCandidates] Candidates:', candidates);
+      console.log('[checkAnswerWithCandidates] Correct answer:', card.answer);
+      console.log('[checkAnswerWithCandidates] Has correct answer:', hasCorrectAnswer);
+      console.log('[checkAnswerWithCandidates] Display answer:', displayAnswer);
+
+      setUserAnswer(displayAnswer);
+      setIsCorrect(hasCorrectAnswer);
+      setShowFeedback(true);
+      console.log('Set showFeedback to true, correct:', hasCorrectAnswer);
+
+      // 統計情報を更新
+      const newStats = {
+        ...stats,
+        correct: stats.correct + (hasCorrectAnswer ? 1 : 0),
+        incorrect: stats.incorrect + (hasCorrectAnswer ? 0 : 1),
+        total: stats.total + 1,
+      };
+      setStats(newStats);
+
+      // データベースに問題とセッション結果を保存
+      if (currentSessionIdRef.current !== null) {
+        try {
+          await endPracticeSession(currentSessionIdRef.current, {
+            isCorrect: hasCorrectAnswer,
+            userAnswer: displayAnswer,
+          });
+          console.log('[Database] Session ended');
+        } catch (error) {
+          console.error('[Database] Failed to end session:', error);
+        }
+      }
+
+      // 進捗を更新
+      if (stats.progressId && cardSet) {
+        try {
+          await updateCardSetProgress(stats.progressId, {
+            correctCount: newStats.correct,
+            incorrectCount: newStats.incorrect,
+          });
+        } catch (error) {
+          console.error('[Database] Failed to update progress:', error);
+        }
+      }
+    },
+    [stats, cardSet]
+  );
+
   // 次のカードに進む
   const nextCard = useCallback(async () => {
     console.log('[nextCard] Called');
@@ -251,6 +315,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     showFeedback,
     isCompleted,
     checkAnswer,
+    checkAnswerWithCandidates,
     nextCard,
     resetFeedback,
   };

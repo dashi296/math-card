@@ -14,6 +14,7 @@ export default function MathFlashcard() {
     stats,
     showFeedback,
     checkAnswer,
+    checkAnswerWithCandidates,
     nextProblem,
     resetStats,
     resetFeedback,
@@ -22,6 +23,7 @@ export default function MathFlashcard() {
   const {
     isListening,
     recognizedNumber,
+    allCandidateNumbers,
     interimText,
     error,
     startListening,
@@ -83,19 +85,23 @@ export default function MathFlashcard() {
 
   // Auto-check answer when a number is recognized
   useEffect(() => {
-    if (recognizedNumber && !showFeedback && recognizedNumber !== lastCheckedNumberRef.current) {
-      const answer = Number.parseInt(recognizedNumber, 10);
+    if (
+      recognizedNumber &&
+      !showFeedback &&
+      recognizedNumber !== lastCheckedNumberRef.current &&
+      allCandidateNumbers.length > 0
+    ) {
+      // Stop listening BEFORE checking answer to prevent next utterance from being appended
+      stopListening();
 
-      if (!Number.isNaN(answer)) {
-        // Stop listening BEFORE checking answer to prevent next utterance from being appended
-        stopListening();
+      lastCheckedNumberRef.current = recognizedNumber;
+      checkAnswerCallCountRef.current += 1;
 
-        lastCheckedNumberRef.current = recognizedNumber;
-        checkAnswerCallCountRef.current += 1;
-        checkAnswer(answer);
-      }
+      // すべての候補をチェック
+      console.log('[MathFlashcard] Checking with all candidates:', allCandidateNumbers);
+      checkAnswerWithCandidates(allCandidateNumbers);
     }
-  }, [recognizedNumber, showFeedback, checkAnswer, stopListening]);
+  }, [recognizedNumber, allCandidateNumbers, showFeedback, checkAnswerWithCandidates, stopListening]);
 
   const handleStart = () => {
     setHasStarted(true);

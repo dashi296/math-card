@@ -14,6 +14,7 @@ interface VoiceNumberRecognitionState {
   interimText: string;
   error: string;
   autoRestart: boolean;
+  allCandidateNumbers: number[]; // すべての候補から抽出した数字の配列
 }
 
 interface VoiceNumberRecognitionActions {
@@ -70,6 +71,13 @@ function selectBestNumberMatch(results: SpeechRecognitionResult[]): BestMatchCan
   if (candidates.length === 0) return null;
 
   candidates.sort((a, b) => b.score - a.score);
+
+  // デバッグ: 上位3候補をログ出力
+  console.log('[Voice Recognition] Top 3 candidates:');
+  candidates.slice(0, 3).forEach((c, i) => {
+    console.log(`  ${i + 1}. "${c.transcript}" (score: ${c.score}, final: ${c.isFinal})`);
+  });
+
   return candidates[0];
 }
 
@@ -97,6 +105,7 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
   const [interimText, setInterimText] = useState('');
   const [error, setError] = useState('');
   const [autoRestart, setAutoRestart] = useState(false);
+  const [allCandidateNumbers, setAllCandidateNumbers] = useState<number[]>([]);
 
   // 音声認識開始イベント
   useSpeechRecognitionEvent('start', () => {
@@ -125,7 +134,32 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
     console.log('[Voice Recognition] Results:', JSON.stringify(results, null, 2));
 
     if (results && results.length > 0) {
-      // 複数の候補から最適なものを選択
+      // すべての候補から数字を抽出
+      const candidateNumbers: number[] = [];
+      const allTranscripts: string[] = [];
+
+      results.forEach((result) => {
+        const transcripts = result.transcripts || [{ transcript: result.transcript }];
+        transcripts.forEach((t) => {
+          const transcript = typeof t === 'string' ? t : t.transcript;
+          if (transcript && typeof transcript === 'string') {
+            allTranscripts.push(transcript);
+            const numberStr = extractNumber(transcript);
+            const num = Number.parseInt(numberStr, 10);
+            if (!Number.isNaN(num) && !candidateNumbers.includes(num)) {
+              candidateNumbers.push(num);
+            }
+          }
+        });
+      });
+
+      console.log('[Voice Recognition] All transcripts:', allTranscripts);
+      console.log('[Voice Recognition] All candidate numbers:', candidateNumbers);
+
+      // すべての候補数字を保存
+      setAllCandidateNumbers(candidateNumbers);
+
+      // 複数の候補から最適なものを選択（表示用）
       const bestMatch = selectBestNumberMatch(results);
       console.log('[Voice Recognition] Best match:', bestMatch);
 
@@ -171,6 +205,7 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
       setError('');
       setRecognizedNumber('');
       setRecognizedText('');
+      setAllCandidateNumbers([]);
 
       // パーミッションチェック
       const result = await ExpoSpeechRecognitionModule.requestPermissionsAsync();
@@ -221,7 +256,7 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
           'ハチ',
           'キュウ',
           'ク',
-          // 10-19
+          // 10-19 (よく使う範囲なので充実)
           'じゅう',
           '十',
           'じゅういち',
@@ -245,13 +280,70 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
           'じゅうきゅう',
           'じゅうく',
           '十九',
-          // 20-90 (10の倍数)
+          // 20-29 (追加: 算数でよく使う)
           'にじゅう',
           '二十',
+          'にじゅういち',
+          '二十一',
+          'にじゅうに',
+          '二十二',
+          'にじゅうさん',
+          '二十三',
+          'にじゅうよん',
+          '二十四',
+          'にじゅうご',
+          '二十五',
+          'にじゅうろく',
+          '二十六',
+          'にじゅうなな',
+          '二十七',
+          'にじゅうはち',
+          '二十八',
+          'にじゅうきゅう',
+          '二十九',
+          // 30-39 (追加)
           'さんじゅう',
           '三十',
+          'さんじゅういち',
+          '三十一',
+          'さんじゅうに',
+          '三十二',
+          'さんじゅうさん',
+          '三十三',
+          'さんじゅうよん',
+          '三十四',
+          'さんじゅうご',
+          '三十五',
+          'さんじゅうろく',
+          '三十六',
+          'さんじゅうなな',
+          '三十七',
+          'さんじゅうはち',
+          '三十八',
+          'さんじゅうきゅう',
+          '三十九',
+          // 40-49 (追加)
           'よんじゅう',
           '四十',
+          'よんじゅういち',
+          '四十一',
+          'よんじゅうに',
+          '四十二',
+          'よんじゅうさん',
+          '四十三',
+          'よんじゅうよん',
+          '四十四',
+          'よんじゅうご',
+          '四十五',
+          'よんじゅうろく',
+          '四十六',
+          'よんじゅうなな',
+          '四十七',
+          'よんじゅうはち',
+          '四十八',
+          'よんじゅうきゅう',
+          '四十九',
+          // 50-90 (10の倍数)
           'ごじゅう',
           '五十',
           'ろくじゅう',
@@ -348,6 +440,7 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
     setRecognizedText('');
     setInterimText('');
     setError('');
+    setAllCandidateNumbers([]);
   }, []);
 
   return {
@@ -358,6 +451,7 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
     interimText,
     error,
     autoRestart,
+    allCandidateNumbers,
     // アクション
     startListening,
     stopListening,

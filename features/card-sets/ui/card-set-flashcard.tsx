@@ -19,6 +19,7 @@ export default function CardSetFlashcard() {
     showFeedback,
     isCompleted,
     checkAnswer,
+    checkAnswerWithCandidates,
     nextCard,
     resetFeedback,
   } = useCardSetFlashcard(selectedCardSet);
@@ -26,6 +27,7 @@ export default function CardSetFlashcard() {
   const {
     isListening,
     recognizedNumber,
+    allCandidateNumbers,
     interimText,
     error,
     startListening,
@@ -93,16 +95,20 @@ export default function CardSetFlashcard() {
 
   // Auto-check answer when a number is recognized
   useEffect(() => {
-    if (recognizedNumber && !showFeedback && recognizedNumber !== lastCheckedNumberRef.current) {
-      const answer = Number.parseInt(recognizedNumber, 10);
+    if (
+      recognizedNumber &&
+      !showFeedback &&
+      recognizedNumber !== lastCheckedNumberRef.current &&
+      allCandidateNumbers.length > 0
+    ) {
+      stopListening();
+      lastCheckedNumberRef.current = recognizedNumber;
 
-      if (!Number.isNaN(answer)) {
-        stopListening();
-        lastCheckedNumberRef.current = recognizedNumber;
-        checkAnswer(answer);
-      }
+      // すべての候補をチェック
+      console.log('[CardSetFlashcard] Checking with all candidates:', allCandidateNumbers);
+      checkAnswerWithCandidates(allCandidateNumbers);
     }
-  }, [recognizedNumber, showFeedback, checkAnswer, stopListening]);
+  }, [recognizedNumber, allCandidateNumbers, showFeedback, checkAnswerWithCandidates, stopListening]);
 
   const handleStart = () => {
     setHasStarted(true);

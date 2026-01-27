@@ -21,6 +21,10 @@ export const SCORE = {
   ARABIC_NUMERAL: 30,
   SINGLE_CHAR_PENALTY: -20,
   NOISE_WORD_PENALTY: -15,
+  // 新規追加: 長い表現と複合数字を優先
+  LENGTH_BONUS_PER_CHAR: 2, // 文字数が多いほど高スコア
+  COMPOUND_NUMBER_BONUS: 25, // 十、百、千を含む表現に追加ボーナス
+  SHORT_TEXT_PENALTY: -30, // 2文字以下の非アラビア数字に強いペナルティ
 } as const;
 
 /** ノイズワード */
