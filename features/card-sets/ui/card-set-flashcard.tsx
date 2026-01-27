@@ -248,7 +248,7 @@ export default function CardSetFlashcard() {
       {/* Problem Section */}
       <View style={styles.problemContainer}>
         <Text style={styles.problemText}>
-          {currentCard.num1} {currentCard.operator} {currentCard.num2} = ?
+          {currentCard.num1} {currentCard.operator === '*' ? '×' : currentCard.operator} {currentCard.num2} = ?
         </Text>
       </View>
 
