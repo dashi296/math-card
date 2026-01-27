@@ -2,7 +2,7 @@
  * Japanese number parsing functions
  */
 
-import { kanjiToNum, unitToMultiplier } from './constants';
+import { kanjiToNum, MISRECOGNITION_MAP, unitToMultiplier } from './constants';
 import { findUnitFuzzy, getBasicNumber } from './fuzzy-matching';
 import { convertKatakanaToHiragana } from './helpers';
 import type { NumberMap } from './types';
@@ -118,6 +118,36 @@ export function parseJapaneseNumber(text: string): number | null {
 }
 
 /**
+ * 音声認識の誤認識を修正
+ *
+ * 音声認識エンジンが数字を誤って他の単語として認識した場合に、
+ * 正しい数字表現に変換する
+ */
+function correctMisrecognition(text: string): string {
+  let correctedText = text;
+  let corrected = false;
+
+  // 誤認識パターンを正しい表現に置換
+  for (const [wrong, correct] of Object.entries(MISRECOGNITION_MAP)) {
+    // 完全一致と部分一致の両方をチェック
+    if (correctedText === wrong) {
+      console.log(`[Number Parser] Corrected misrecognition: "${text}" → "${correct}"`);
+      return correct;
+    }
+    if (correctedText.includes(wrong)) {
+      correctedText = correctedText.replace(new RegExp(wrong, 'g'), correct);
+      corrected = true;
+    }
+  }
+
+  if (corrected) {
+    console.log(`[Number Parser] Corrected misrecognition: "${text}" → "${correctedText}"`);
+  }
+
+  return correctedText;
+}
+
+/**
  * 音声テキストから数字を抽出
  *
  * 日本語の音声入力テキストを数字（文字列形式）に変換
@@ -129,22 +159,19 @@ export function extractNumber(text: string): string {
     return numberMatch[0];
   }
 
+  // 誤認識パターンを修正
+  const correctedText = correctMisrecognition(text);
+
   // カタカナをひらがなに変換して統一
-  const processedText = convertKatakanaToHiragana(text.toLowerCase());
+  const processedText = convertKatakanaToHiragana(correctedText.toLowerCase());
 
-  // 日本語数字のパース
-  const parsedNumber = parseJapaneseNumber(processedText);
-  if (parsedNumber !== null) {
-    return parsedNumber.toString();
-  }
-
-  // 単純なマッチング（最長マッチを優先）
+  // 直接マッチング（最長マッチを優先）- 複合数字を優先するため、パース前に実行
   let longestMatch: { key: string; value: number; length: number } | null = null;
 
   for (const [key, value] of Object.entries(kanjiToNum)) {
     const lowerKey = key.toLowerCase();
     if (processedText.includes(lowerKey)) {
-      // より長いマッチを優先
+      // より長いマッチを優先（複合数字「じゅうし」が「し」より優先される）
       if (!longestMatch || lowerKey.length > longestMatch.length) {
         longestMatch = { key: lowerKey, value, length: lowerKey.length };
       }
@@ -153,6 +180,12 @@ export function extractNumber(text: string): string {
 
   if (longestMatch) {
     return longestMatch.value.toString();
+  }
+
+  // 複雑な数字のパース（20以上、百、千など）
+  const parsedNumber = parseJapaneseNumber(processedText);
+  if (parsedNumber !== null) {
+    return parsedNumber.toString();
   }
 
   return text;

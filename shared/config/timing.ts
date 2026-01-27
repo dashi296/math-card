@@ -8,8 +8,9 @@
 /**
  * Delay before starting voice recognition (in milliseconds)
  * Allows UI to settle and prevents immediate recognition start
+ * Reduced from 500ms to 200ms for faster response
  */
-export const VOICE_RECOGNITION_START_DELAY_MS = 500;
+export const VOICE_RECOGNITION_START_DELAY_MS = 200;
 
 /**
  * Delay before transitioning to next card/problem (in milliseconds)
