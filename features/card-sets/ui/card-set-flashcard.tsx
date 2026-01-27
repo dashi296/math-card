@@ -1,23 +1,27 @@
 import { useEffect, useRef, useState } from 'react';
 import { Button, StyleSheet, Text, View } from 'react-native';
-import { CARD_TRANSITION_DELAY_MS, VOICE_RECOGNITION_START_DELAY_MS } from '@/constants/timing';
-import { useMathFlashcard } from '@/hooks/use-math-flashcard';
-import { useSoundEffect } from '@/hooks/use-sound-effect';
-import { useVoiceNumberRecognition } from '@/hooks/use-voice-number-recognition';
-import { calculateAccuracy } from '@/utils/stats';
+import { useVoiceNumberRecognition } from '@/features/voice-recognition/model/use-voice-number-recognition';
+import { CARD_TRANSITION_DELAY_MS, VOICE_RECOGNITION_START_DELAY_MS } from '@/shared/config/timing';
+import type { CardSet } from '@/shared/data/db/schema';
+import { calculateAccuracy } from '@/shared/lib/stats';
+import { useSoundEffect } from '@/shared/lib/use-sound-effect';
+import { useCardSetFlashcard } from '../model/use-card-set-flashcard';
+import CardSetSelector from './card-set-selector';
 
-export default function MathFlashcard() {
+export default function CardSetFlashcard() {
+  const [selectedCardSet, setSelectedCardSet] = useState<CardSet | null>(null);
+
   const {
-    problem,
+    currentCard,
     userAnswer,
     isCorrect,
     stats,
     showFeedback,
+    isCompleted,
     checkAnswer,
-    nextProblem,
-    resetStats,
+    nextCard,
     resetFeedback,
-  } = useMathFlashcard(20);
+  } = useCardSetFlashcard(selectedCardSet);
 
   const {
     isListening,
@@ -33,10 +37,16 @@ export default function MathFlashcard() {
 
   // Track the last checked number to avoid duplicate checks
   const lastCheckedNumberRef = useRef<string | null>(null);
-  const checkAnswerCallCountRef = useRef(0);
 
   // Track if user has started (first manual start)
   const [hasStarted, setHasStarted] = useState(false);
+
+  // カードセットが変更されたら、セッションをリセット
+  useEffect(() => {
+    setHasStarted(false);
+    clearResults();
+    lastCheckedNumberRef.current = null;
+  }, [clearResults]);
 
   // Play sound effect when answer is checked
   useEffect(() => {
@@ -49,24 +59,24 @@ export default function MathFlashcard() {
     }
   }, [showFeedback, isCorrect, playCorrectSound, playIncorrectSound]);
 
-  // Auto-advance to next problem if answer is correct
+  // Auto-advance to next card if answer is correct
   useEffect(() => {
     if (showFeedback && isCorrect) {
       // Clear the recognized number
       clearResults();
 
-      // Wait a bit for clearResults to take effect before generating next problem
+      // Wait a bit for clearResults to take effect before generating next card
       const timer = setTimeout(() => {
-        nextProblem();
+        nextCard();
       }, CARD_TRANSITION_DELAY_MS);
 
       return () => clearTimeout(timer);
     }
-  }, [showFeedback, isCorrect, clearResults, nextProblem]);
+  }, [showFeedback, isCorrect, clearResults, nextCard]);
 
-  // Auto-start voice recognition when a new problem is shown (only after initial start)
+  // Auto-start voice recognition when a new card is shown (only after initial start)
   useEffect(() => {
-    if (hasStarted && problem && !showFeedback && !isListening) {
+    if (hasStarted && currentCard && !showFeedback && !isListening) {
       // Only reset ref if recognizedNumber has been cleared
       if (!recognizedNumber) {
         lastCheckedNumberRef.current = null;
@@ -79,7 +89,7 @@ export default function MathFlashcard() {
 
       return () => clearTimeout(timer);
     }
-  }, [hasStarted, problem, showFeedback, isListening, recognizedNumber, startListening]);
+  }, [hasStarted, currentCard, showFeedback, isListening, recognizedNumber, startListening]);
 
   // Auto-check answer when a number is recognized
   useEffect(() => {
@@ -87,11 +97,8 @@ export default function MathFlashcard() {
       const answer = Number.parseInt(recognizedNumber, 10);
 
       if (!Number.isNaN(answer)) {
-        // Stop listening BEFORE checking answer to prevent next utterance from being appended
         stopListening();
-
         lastCheckedNumberRef.current = recognizedNumber;
-        checkAnswerCallCountRef.current += 1;
         checkAnswer(answer);
       }
     }
@@ -108,8 +115,8 @@ export default function MathFlashcard() {
     resetFeedback();
   };
 
-  const handleResetStats = () => {
-    resetStats();
+  const handleBackToSelection = () => {
+    setSelectedCardSet(null);
     setHasStarted(false);
     clearResults();
     lastCheckedNumberRef.current = null;
@@ -152,14 +159,70 @@ export default function MathFlashcard() {
     return null;
   };
 
-  if (!problem) {
-    return null;
+  // カードセットが選択されていない場合は、選択画面を表示
+  if (!selectedCardSet) {
+    return <CardSetSelector onSelectCardSet={setSelectedCardSet} selectedCardSetId={null} />;
+  }
+
+  // 全てのカードが完了した場合
+  if (isCompleted) {
+    const accuracy = calculateAccuracy(stats.correct, stats.total);
+
+    return (
+      <View style={styles.container}>
+        <View style={styles.completionContainer}>
+          <Text style={styles.completionEmoji}>🎉</Text>
+          <Text style={styles.completionTitle}>おめでとうございます!</Text>
+          <Text style={styles.completionMessage}>全てのカードを完了しました!</Text>
+
+          <View style={styles.statsContainer}>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>正解</Text>
+              <Text style={[styles.statValue, styles.correctText]}>{stats.correct}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>不正解</Text>
+              <Text style={[styles.statValue, styles.incorrectText]}>{stats.incorrect}</Text>
+            </View>
+            <View style={styles.statItem}>
+              <Text style={styles.statLabel}>正解率</Text>
+              <Text style={styles.statValue}>{accuracy}%</Text>
+            </View>
+          </View>
+
+          <View style={styles.button}>
+            <Button
+              title="別のカードセットを選ぶ"
+              onPress={handleBackToSelection}
+              color="#2196F3"
+            />
+          </View>
+        </View>
+      </View>
+    );
+  }
+
+  // カードが読み込まれていない場合
+  if (!currentCard) {
+    return (
+      <View style={styles.container}>
+        <Text style={styles.loadingText}>カードを読み込み中...</Text>
+      </View>
+    );
   }
 
   const accuracy = calculateAccuracy(stats.correct, stats.total);
 
   return (
     <View style={styles.container}>
+      {/* Header */}
+      <View style={styles.header}>
+        <Text style={styles.cardSetName}>{selectedCardSet.name}</Text>
+        <Text style={styles.progressText}>
+          {stats.currentCardIndex + 1} / {stats.totalCards} 枚目
+        </Text>
+      </View>
+
       {/* Stats Section */}
       <View style={styles.statsContainer}>
         <View style={styles.statItem}>
@@ -179,7 +242,7 @@ export default function MathFlashcard() {
       {/* Problem Section */}
       <View style={styles.problemContainer}>
         <Text style={styles.problemText}>
-          {problem.num1} {problem.operator} {problem.num2} = ?
+          {currentCard.num1} {currentCard.operator} {currentCard.num2} = ?
         </Text>
       </View>
 
@@ -210,11 +273,11 @@ export default function MathFlashcard() {
           ]}
         >
           <Text style={styles.feedbackEmoji}>{isCorrect ? '🎉' : '😅'}</Text>
-          <Text style={styles.feedbackText}>{isCorrect ? '正解！' : '残念！'}</Text>
+          <Text style={styles.feedbackText}>{isCorrect ? '正解!' : '残念!'}</Text>
           <Text style={styles.answerText}>
             あなたの答え: {userAnswer}
             {'\n'}
-            正解: {problem.answer}
+            正解: {currentCard.answer}
           </Text>
         </View>
       )}
@@ -227,14 +290,17 @@ export default function MathFlashcard() {
       )}
 
       {/* Action Buttons */}
-      <View style={styles.buttonContainer}>{renderActionButtons()}</View>
+      <View style={styles.buttonContainer}>
+        {renderActionButtons()}
 
-      {/* Reset Button */}
-      {stats.total > 0 && (
-        <View style={styles.resetContainer}>
-          <Button title="最初からやり直す" onPress={handleResetStats} color="#757575" />
+        <View style={styles.button}>
+          <Button
+            title="← カードセット選択に戻る"
+            onPress={handleBackToSelection}
+            color="#757575"
+          />
         </View>
-      )}
+      </View>
 
       {/* Instructions */}
       <View style={styles.infoContainer}>
@@ -244,8 +310,7 @@ export default function MathFlashcard() {
           2. 計算の答えを声で言う（例：「じゅうご」）{'\n'}
           3. 自動で採点されます{'\n'}
           4. 正解 → すぐに次の問題へ自動で進む{'\n'}
-          5. 不正解 → 正解するまで同じ問題を繰り返す{'\n'}
-          {'\n'}※ 正解すれば自動で次々と問題が進みます
+          5. 不正解 → 正解するまで同じ問題を繰り返す
         </Text>
       </View>
     </View>
@@ -259,6 +324,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     padding: 20,
     backgroundColor: '#f5f5f5',
+  },
+  header: {
+    width: '100%',
+    marginBottom: 20,
+    alignItems: 'center',
+  },
+  cardSetName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#2196F3',
+    marginBottom: 5,
+  },
+  progressText: {
+    fontSize: 14,
+    color: '#666',
   },
   statsContainer: {
     flexDirection: 'row',
@@ -397,17 +477,14 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   buttonContainer: {
-    flexDirection: 'row',
+    flexDirection: 'column',
     justifyContent: 'center',
-    flexWrap: 'wrap',
+    alignItems: 'center',
     marginTop: 20,
     gap: 10,
+    width: '100%',
   },
   button: {
-    minWidth: 150,
-  },
-  resetContainer: {
-    marginTop: 20,
     width: '100%',
   },
   infoContainer: {
@@ -421,5 +498,29 @@ const styles = StyleSheet.create({
     color: '#1976d2',
     textAlign: 'left',
     lineHeight: 20,
+  },
+  loadingText: {
+    fontSize: 16,
+    textAlign: 'center',
+    color: '#666',
+  },
+  completionContainer: {
+    alignItems: 'center',
+    padding: 20,
+  },
+  completionEmoji: {
+    fontSize: 80,
+    marginBottom: 20,
+  },
+  completionTitle: {
+    fontSize: 28,
+    fontWeight: 'bold',
+    color: '#4CAF50',
+    marginBottom: 10,
+  },
+  completionMessage: {
+    fontSize: 18,
+    color: '#666',
+    marginBottom: 30,
   },
 });

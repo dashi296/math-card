@@ -1,9 +1,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import { Button, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { initializeDatabase } from '@/db/client';
-import type { CardSet } from '@/db/schema';
-import { getAllCardSets, saveCardSet } from '@/db/service';
-import { GRADE1_CARD_SETS } from '@/utils/card-set-generator';
+import { initializeDatabase } from '@/shared/data/db/client';
+import type { CardSet } from '@/shared/data/db/schema';
+import { getAllCardSets, saveCardSet } from '@/shared/data/db/service';
+import { GRADE1_CARD_SETS } from '@/shared/lib/card-set-generator';
 
 interface CardSetSelectorProps {
   onSelectCardSet: (cardSet: CardSet) => void;

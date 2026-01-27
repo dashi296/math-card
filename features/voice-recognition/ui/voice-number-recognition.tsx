@@ -1,5 +1,5 @@
 import { Button, StyleSheet, Text, View } from 'react-native';
-import { useVoiceNumberRecognition } from '@/hooks/use-voice-number-recognition';
+import { useVoiceNumberRecognition } from '../model/use-voice-number-recognition';
 
 export default function VoiceNumberRecognition() {
   const {

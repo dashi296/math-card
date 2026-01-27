@@ -1,4 +1,4 @@
-import type { OperatorType } from '@/db/schema';
+import type { OperatorType } from '@/shared/data/db/schema';
 
 export interface CardSetDefinition {
   id?: number;

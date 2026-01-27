@@ -1,14 +1,14 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { initializeDatabase } from '@/db/client';
-import type { CardSet } from '@/db/schema';
+import { initializeDatabase } from '@/shared/data/db/client';
+import type { CardSet } from '@/shared/data/db/schema';
 import {
   endPracticeSession,
   resetCardSetProgress,
   startPracticeSession,
   updateCardSetProgress,
-} from '@/db/service';
-import type { MathCard } from '@/utils/card-set-generator';
-import { generateCardsForSet, shuffleCards } from '@/utils/card-set-generator';
+} from '@/shared/data/db/service';
+import type { MathCard } from '@/shared/lib/card-set-generator';
+import { generateCardsForSet, shuffleCards } from '@/shared/lib/card-set-generator';
 
 export interface CardSetFlashcardStats {
   correct: number;
