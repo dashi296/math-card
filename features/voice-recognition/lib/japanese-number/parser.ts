@@ -153,14 +153,20 @@ function correctMisrecognition(text: string): string {
  * 日本語の音声入力テキストを数字（文字列形式）に変換
  */
 export function extractNumber(text: string): string {
-  // アラビア数字をそのまま抽出
-  const numberMatch = text.match(/\d+/);
-  if (numberMatch) {
-    return numberMatch[0];
-  }
-
-  // 誤認識パターンを修正
+  // 誤認識パターンを修正（アラビア数字抽出の前に実行）
   const correctedText = correctMisrecognition(text);
+
+  // 誤認識修正後にアラビア数字をチェック（明らかな誤認識パターンを除外）
+  const numberMatch = correctedText.match(/\d+/);
+  if (numberMatch) {
+    const num = numberMatch[0];
+    // 繰り返しパターン（1010, 101010など）は除外（10は正常なので通す）
+    if (!/^10(10)+$/.test(num)) {
+      return num;
+    }
+    // 繰り返しパターンの場合は誤認識なので、さらに処理を続ける
+    console.log('[Number Parser] Detected repetition pattern, continuing processing:', num);
+  }
 
   // カタカナをひらがなに変換して統一
   const processedText = convertKatakanaToHiragana(correctedText.toLowerCase());

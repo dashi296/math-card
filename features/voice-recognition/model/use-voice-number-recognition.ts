@@ -133,6 +133,19 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
     const results = event.results;
     console.log('[Voice Recognition] Results:', JSON.stringify(results, null, 2));
 
+    // 空の結果や信頼度が0の結果を無視
+    if (!results || results.length === 0) {
+      console.log('[Voice Recognition] Empty results, ignoring');
+      return;
+    }
+
+    // 全ての結果が空のtranscriptの場合は無視
+    const hasValidTranscript = results.some(r => r.transcript && r.transcript.trim().length > 0);
+    if (!hasValidTranscript) {
+      console.log('[Voice Recognition] No valid transcripts, ignoring');
+      return;
+    }
+
     if (results && results.length > 0) {
       // すべての候補から数字を抽出
       const candidateNumbers: number[] = [];
@@ -223,21 +236,13 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
         addsPunctuation: false,
         // iOS用の最適化: 短い音声認識向け
         ...(Platform.OS === 'ios' && {
-          iosTaskHint: 'dictation',
+          iosTaskHint: 'search', // Changed from 'dictation' to 'search' for better short phrase recognition
         }),
         contextualStrings: [
-          // 0-9 アラビア数字（音声認識エンジンに数字文脈を示す）
-          '0', '1', '2', '3', '4', '5', '6', '7', '8', '9',
-          '10', '11', '12', '13', '14', '15', '16', '17', '18', '19',
-          '20', '21', '22', '23', '24', '25', '26', '27', '28', '29',
-          '30', '31', '32', '33', '34', '35', '36', '37', '38', '39',
-          '40', '41', '42', '43', '44', '45', '46', '47', '48', '49',
-          '50', '51', '52', '53', '54', '55', '56', '57', '58', '59',
-          '60', '61', '62', '63', '64', '65', '66', '67', '68', '69',
-          '70', '71', '72', '73', '74', '75', '76', '77', '78', '79',
-          '80', '81', '82', '83', '84', '85', '86', '87', '88', '89',
-          '90', '91', '92', '93', '94', '95', '96', '97', '98', '99',
-          '100',
+          // 10の位を優先（よく誤認識される「じゅう」を強調）
+          'じゅう',
+          '十',
+          'ジュウ',
           // 0-9 ひらがな
           'ぜろ',
           'れい',
