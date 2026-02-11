@@ -1,80 +1,121 @@
-import { Image } from 'expo-image';
 import { useState } from 'react';
-import { Button, StyleSheet, View } from 'react-native';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import CardSetFlashcard from '@/features/card-sets/ui/card-set-flashcard';
 import MathFlashcard from '@/features/math-practice/ui/math-flashcard';
-import ParallaxScrollView from '@/shared/ui/parallax-scroll-view';
-import { ThemedText } from '@/shared/ui/themed-text';
-import { ThemedView } from '@/shared/ui/themed-view';
+import { Fonts } from '@/shared/config/theme';
+import { useAppColors } from '@/shared/lib/use-app-colors';
 
 type Mode = 'card-set' | 'random';
 
 export default function HomeScreen() {
   const [mode, setMode] = useState<Mode>('card-set');
+  const c = useAppColors();
 
   return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#A1CEDC', dark: '#1D3D47' }}
-      headerImage={
-        <Image
-          source={require('@/assets/images/partial-react-logo.png')}
-          style={styles.reactLogo}
-        />
-      }
+    <ScrollView
+      style={[styles.scroll, { backgroundColor: c.surfaceSecondary }]}
+      contentContainerStyle={styles.scrollContent}
     >
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">音声で計算練習</ThemedText>
-      </ThemedView>
+      <View style={styles.header}>
+        <Text style={[styles.headerEmoji]}>🧮</Text>
+        <Text style={[styles.title, { color: c.textPrimary, fontFamily: Fonts?.rounded }]}>
+          音声で計算練習
+        </Text>
+        <Text style={[styles.subtitle, { color: c.textSecondary }]}>
+          声で答えて、どんどん上達しよう
+        </Text>
+      </View>
 
-      {/* Mode Selection */}
-      <ThemedView style={styles.modeSelector}>
-        <View style={styles.modeSelectorButtons}>
-          <Button
-            title="カードセットモード"
-            onPress={() => setMode('card-set')}
-            color={mode === 'card-set' ? '#4CAF50' : '#757575'}
-          />
-          <Button
-            title="ランダムモード"
-            onPress={() => setMode('random')}
-            color={mode === 'random' ? '#4CAF50' : '#757575'}
-          />
-        </View>
-      </ThemedView>
+      <View style={[styles.modeToggle, { backgroundColor: c.surface, borderColor: c.border }]}>
+        <Pressable
+          style={[styles.modeTab, mode === 'card-set' && { backgroundColor: c.primary }]}
+          onPress={() => setMode('card-set')}
+        >
+          <Text
+            style={[
+              styles.modeTabText,
+              {
+                color: mode === 'card-set' ? c.primaryText : c.textSecondary,
+                fontFamily: Fonts?.rounded,
+              },
+            ]}
+          >
+            カードセット
+          </Text>
+        </Pressable>
+        <Pressable
+          style={[styles.modeTab, mode === 'random' && { backgroundColor: c.primary }]}
+          onPress={() => setMode('random')}
+        >
+          <Text
+            style={[
+              styles.modeTabText,
+              {
+                color: mode === 'random' ? c.primaryText : c.textSecondary,
+                fontFamily: Fonts?.rounded,
+              },
+            ]}
+          >
+            ランダム
+          </Text>
+        </Pressable>
+      </View>
 
-      <ThemedView style={styles.flashcardContainer}>
+      <View style={styles.flashcardContainer}>
         {mode === 'card-set' ? <CardSetFlashcard /> : <MathFlashcard />}
-      </ThemedView>
-    </ParallaxScrollView>
+      </View>
+    </ScrollView>
   );
 }
 
 const styles = StyleSheet.create({
-  titleContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
-    marginBottom: 10,
+  scroll: {
+    flex: 1,
   },
-  modeSelector: {
-    marginBottom: 20,
+  scrollContent: {
+    paddingBottom: 40,
+  },
+  header: {
+    alignItems: 'center',
+    paddingTop: 60,
+    paddingBottom: 24,
     paddingHorizontal: 20,
   },
-  modeSelectorButtons: {
+  headerEmoji: {
+    fontSize: 48,
+    marginBottom: 12,
+  },
+  title: {
+    fontSize: 28,
+    fontWeight: '800',
+    letterSpacing: -0.5,
+    marginBottom: 6,
+  },
+  subtitle: {
+    fontSize: 15,
+    fontWeight: '400',
+  },
+  modeToggle: {
     flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 10,
+    marginHorizontal: 24,
+    marginBottom: 24,
+    borderRadius: 16,
+    padding: 4,
+    borderWidth: 1,
+  },
+  modeTab: {
+    flex: 1,
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  modeTabText: {
+    fontSize: 15,
+    fontWeight: '700',
   },
   flashcardContainer: {
     flex: 1,
     minHeight: 600,
-  },
-  reactLogo: {
-    height: 178,
-    width: 290,
-    bottom: 0,
-    left: 0,
-    position: 'absolute',
+    paddingHorizontal: 4,
   },
 });
