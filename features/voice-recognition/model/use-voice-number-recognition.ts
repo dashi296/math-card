@@ -7,6 +7,15 @@ import { useCallback, useState } from 'react';
 import { Alert, Platform } from 'react-native';
 import { extractNumber, scoreNumberCandidate } from '../lib/japanese-number';
 
+interface ExpectedRange {
+  min: number;
+  max: number;
+}
+
+interface VoiceNumberRecognitionOptions {
+  expectedRange?: ExpectedRange;
+}
+
 interface VoiceNumberRecognitionState {
   isListening: boolean;
   recognizedNumber: string;
@@ -14,7 +23,7 @@ interface VoiceNumberRecognitionState {
   interimText: string;
   error: string;
   autoRestart: boolean;
-  allCandidateNumbers: number[]; // すべての候補から抽出した数字の配列
+  allCandidateNumbers: number[];
 }
 
 interface VoiceNumberRecognitionActions {
@@ -39,35 +48,60 @@ interface SpeechRecognitionResult {
   isFinal?: boolean;
 }
 
-interface BestMatchCandidate {
+interface BestNumberResult {
+  number: string;
   transcript: string;
   isFinal: boolean;
   score: number;
 }
 
 /**
- * 複数の認識候補から最も数字として妥当なものを選択
+ * 抽出された数字が期待範囲内かどうかをスコアリング
  */
-function selectBestNumberMatch(results: SpeechRecognitionResult[]): BestMatchCandidate | null {
+function scoreNumberPlausibility(num: number, expectedRange: ExpectedRange): number {
+  if (num >= expectedRange.min && num <= expectedRange.max) return 20;
+  if (num > expectedRange.max * 10) return -50;
+  return -20;
+}
+
+/**
+ * 複数の認識候補から最も妥当な数字を選択する統合パイプライン
+ *
+ * テキストの「数字らしさ」スコアと、抽出された数字の「妥当性」スコアを合算し、
+ * 最もスコアの高い候補を返す
+ */
+function selectBestNumber(
+  results: SpeechRecognitionResult[],
+  expectedRange: ExpectedRange,
+): BestNumberResult | null {
   if (!results || results.length === 0) return null;
 
-  // すべての候補を収集してスコアリング
-  const candidates: BestMatchCandidate[] = [];
+  const candidates: BestNumberResult[] = [];
 
-  results.forEach((result) => {
+  for (const result of results) {
     const transcripts = result.transcripts || [{ transcript: result.transcript }];
     const isFinal = result.isFinal || false;
 
-    transcripts.forEach((t) => {
+    for (const t of transcripts) {
       const transcript = typeof t === 'string' ? t : t.transcript;
-      if (transcript && typeof transcript === 'string') {
-        const score = scoreNumberCandidate(transcript);
-        candidates.push({ transcript, isFinal, score });
-      }
-    });
-  });
+      if (!transcript || typeof transcript !== 'string') continue;
 
-  // スコアが最も高い候補を選択
+      const textScore = scoreNumberCandidate(transcript);
+      const extracted = extractNumber(transcript);
+      const num = Number.parseInt(extracted, 10);
+
+      if (!Number.isNaN(num)) {
+        const plausibility = scoreNumberPlausibility(num, expectedRange);
+        candidates.push({
+          number: extracted,
+          transcript,
+          isFinal,
+          score: textScore + plausibility,
+        });
+      }
+    }
+  }
+
   if (candidates.length === 0) return null;
 
   candidates.sort((a, b) => b.score - a.score);
@@ -75,7 +109,7 @@ function selectBestNumberMatch(results: SpeechRecognitionResult[]): BestMatchCan
   // デバッグ: 上位3候補をログ出力
   console.log('[Voice Recognition] Top 3 candidates:');
   candidates.slice(0, 3).forEach((c, i) => {
-    console.log(`  ${i + 1}. "${c.transcript}" (score: ${c.score}, final: ${c.isFinal})`);
+    console.log(`  ${i + 1}. "${c.transcript}" → ${c.number} (score: ${c.score}, final: ${c.isFinal})`);
   });
 
   return candidates[0];
@@ -98,7 +132,11 @@ function selectBestNumberMatch(results: SpeechRecognitionResult[]): BestMatchCan
  * } = useVoiceNumberRecognition();
  * ```
  */
-export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
+export function useVoiceNumberRecognition(
+  options?: VoiceNumberRecognitionOptions,
+): UseVoiceNumberRecognitionReturn {
+  const expectedRange = options?.expectedRange ?? { min: 0, max: 100 };
+
   const [isListening, setIsListening] = useState(false);
   const [recognizedNumber, setRecognizedNumber] = useState('');
   const [recognizedText, setRecognizedText] = useState('');
@@ -133,61 +171,38 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
     const results = event.results;
     console.log('[Voice Recognition] Results:', JSON.stringify(results, null, 2));
 
-    if (results && results.length > 0) {
-      // すべての候補から数字を抽出
-      const candidateNumbers: number[] = [];
-      const allTranscripts: string[] = [];
+    if (!results || results.length === 0) return;
 
-      results.forEach((result) => {
-        const transcripts = result.transcripts || [{ transcript: result.transcript }];
-        transcripts.forEach((t) => {
-          const transcript = typeof t === 'string' ? t : t.transcript;
-          if (transcript && typeof transcript === 'string') {
-            allTranscripts.push(transcript);
-            const numberStr = extractNumber(transcript);
-            const num = Number.parseInt(numberStr, 10);
-            if (!Number.isNaN(num) && !candidateNumbers.includes(num)) {
-              candidateNumbers.push(num);
-            }
-          }
-        });
-      });
-
-      console.log('[Voice Recognition] All transcripts:', allTranscripts);
-      console.log('[Voice Recognition] All candidate numbers:', candidateNumbers);
-
-      // すべての候補数字を保存
-      setAllCandidateNumbers(candidateNumbers);
-
-      // 複数の候補から最適なものを選択（表示用）
-      const bestMatch = selectBestNumberMatch(results);
-      console.log('[Voice Recognition] Best match:', bestMatch);
-
-      if (bestMatch) {
-        const { transcript, isFinal } = bestMatch;
-        console.log('[Voice Recognition] Transcript:', transcript, 'isFinal:', isFinal);
-
-        // 暫定結果（話している最中）でも即座に数字を抽出
-        if (!isFinal) {
-          setInterimText(transcript);
-          // 暫定結果でも数字が抽出できれば表示
-          const number = extractNumber(transcript);
-          console.log('[Voice Recognition] Interim - Extracted number:', number);
-          // 数字が抽出できたら常に設定（transcriptと同じでも）
-          if (number) {
-            console.log('[Voice Recognition] Setting recognizedNumber to:', number);
-            setRecognizedNumber(number);
-          }
-        } else {
-          // 確定結果
-          setInterimText('');
-          setRecognizedText(transcript);
-          const number = extractNumber(transcript);
-          console.log('[Voice Recognition] Final - Extracted number:', number);
-          setRecognizedNumber(number);
+    // すべての候補から数字を抽出（寛大マッチング用）
+    const candidateNumbers: number[] = [];
+    for (const result of results) {
+      const transcripts = result.transcripts || [{ transcript: result.transcript }];
+      for (const t of transcripts) {
+        const transcript = typeof t === 'string' ? t : t.transcript;
+        if (!transcript || typeof transcript !== 'string') continue;
+        const num = Number.parseInt(extractNumber(transcript), 10);
+        if (!Number.isNaN(num) && !candidateNumbers.includes(num)) {
+          candidateNumbers.push(num);
         }
       }
     }
+
+    console.log('[Voice Recognition] Candidate numbers:', candidateNumbers);
+    setAllCandidateNumbers(candidateNumbers);
+
+    // 統合パイプラインで最適な数字を選択
+    const best = selectBestNumber(results, expectedRange);
+    if (!best) return;
+
+    if (!best.isFinal) {
+      setInterimText(best.transcript);
+    } else {
+      setInterimText('');
+      setRecognizedText(best.transcript);
+    }
+
+    console.log('[Voice Recognition] Setting recognizedNumber to:', best.number);
+    setRecognizedNumber(best.number);
   });
 
   // 音声認識エラーイベント
@@ -214,7 +229,7 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
         return;
       }
 
-      const options: ExpoSpeechRecognitionOptions = {
+      const recognitionOptions: ExpoSpeechRecognitionOptions = {
         lang: 'ja-JP',
         interimResults: true,
         maxAlternatives: 5, // Reduced from 10 to 5 for faster processing while maintaining accuracy
@@ -474,7 +489,7 @@ export function useVoiceNumberRecognition(): UseVoiceNumberRecognitionReturn {
         }),
       };
 
-      await ExpoSpeechRecognitionModule.start(options);
+      await ExpoSpeechRecognitionModule.start(recognitionOptions);
     } catch (e) {
       const errorMessage = e instanceof Error ? e.message : '音声認識の開始に失敗しました';
       setError(errorMessage);
