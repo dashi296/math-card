@@ -25,6 +25,10 @@ export const SCORE = {
   LENGTH_BONUS_PER_CHAR: 2, // 文字数が多いほど高スコア
   COMPOUND_NUMBER_BONUS: 25, // 十、百、千を含む表現に追加ボーナス
   SHORT_TEXT_PENALTY: -30, // 2文字以下の非アラビア数字に強いペナルティ
+  // 精度向上のための追加ペナルティ
+  THREE_DIGIT_PENALTY: -40, // 3桁以上の数字（100以上）にペナルティ
+  FOUR_DIGIT_PENALTY: -60, // 4桁以上の数字（1000以上）にペナルティ
+  REPEATING_PATTERN_PENALTY: -50, // 繰り返しパターン（1010、121など）にペナルティ
 } as const;
 
 /** ノイズワード */

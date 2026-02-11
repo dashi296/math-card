@@ -127,5 +127,30 @@ export function scoreNumberCandidate(text: string): number {
     }
   }
 
+  // 抽出された数字が3桁以上の場合にペナルティ（計算問題の範囲は通常1-100）
+  if (extractedNumber.match(/^\d+$/)) {
+    const numValue = Number.parseInt(extractedNumber, 10);
+    if (numValue >= 1000) {
+      score += SCORE.FOUR_DIGIT_PENALTY;
+    } else if (numValue >= 100) {
+      score += SCORE.THREE_DIGIT_PENALTY;
+    }
+
+    // 繰り返しパターンの検出（例: 1010, 121, 1212など）
+    // 数字が2桁以上で、前半と後半が同じ、または数字の繰り返しパターン
+    if (extractedNumber.length >= 3) {
+      const hasRepeatingPattern =
+        // 前半と後半が同じ（1010 = 10 + 10）
+        (extractedNumber.length % 2 === 0 &&
+         extractedNumber.slice(0, extractedNumber.length / 2) === extractedNumber.slice(extractedNumber.length / 2)) ||
+        // 同じ桁の繰り返し（111, 222など）
+        /^(\d)\1+$/.test(extractedNumber);
+
+      if (hasRepeatingPattern) {
+        score += SCORE.REPEATING_PATTERN_PENALTY;
+      }
+    }
+  }
+
   return score;
 }
