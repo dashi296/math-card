@@ -108,8 +108,13 @@ export function scoreNumberCandidate(text: string): number {
   }
 
   // 2文字以下で数字でない場合は強いペナルティ（ただし誤認識パターンは除外）
-  const isMisrecognized = Object.keys(MISRECOGNITION_MAP).some(word => text.includes(word));
-  if (text.length <= 2 && !text.match(/\d/) && !compoundUnits.some(u => lowerText.includes(u.toLowerCase())) && !isMisrecognized) {
+  const isMisrecognized = Object.keys(MISRECOGNITION_MAP).some((word) => text.includes(word));
+  if (
+    text.length <= 2 &&
+    !text.match(/\d/) &&
+    !compoundUnits.some((u) => lowerText.includes(u.toLowerCase())) &&
+    !isMisrecognized
+  ) {
     score += SCORE.SHORT_TEXT_PENALTY;
   }
 

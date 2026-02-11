@@ -1,7 +1,12 @@
-import { Button, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
+import { Fonts } from '@/shared/config/theme';
+import { useAppColors } from '@/shared/lib/use-app-colors';
+import { AppButton } from '@/shared/ui/app-button';
 import { useVoiceNumberRecognition } from '../model/use-voice-number-recognition';
 
 export default function VoiceNumberRecognition() {
+  const c = useAppColors();
+
   const {
     isListening,
     recognizedNumber,
@@ -16,80 +21,94 @@ export default function VoiceNumberRecognition() {
   } = useVoiceNumberRecognition();
 
   return (
-    <View style={styles.container}>
-      <Text style={styles.title}>数字を話してください</Text>
+    <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}>
+      <Text style={[styles.title, { color: c.textPrimary, fontFamily: Fonts?.rounded }]}>
+        数字を話してください
+      </Text>
 
-      <View style={styles.statusContainer}>
+      <View style={styles.statusArea}>
         {isListening && (
           <>
-            <Text style={styles.listeningText}>🎤 聞き取り中...</Text>
-            <Text style={styles.hintText}>ゆっくり、はっきりと発音してください</Text>
+            <Text style={[styles.listeningText, { color: c.success, fontFamily: Fonts?.rounded }]}>
+              🎤 聞き取り中...
+            </Text>
+            <Text style={[styles.hintText, { color: c.textMuted }]}>
+              ゆっくり、はっきりと発音してください
+            </Text>
           </>
         )}
       </View>
 
       {interimText && (
-        <View style={styles.interimContainer}>
-          <Text style={styles.interimLabel}>認識中:</Text>
-          <Text style={styles.interimText}>{interimText}</Text>
+        <View
+          style={[
+            styles.interimCard,
+            { backgroundColor: c.warningBg, borderColor: c.warningBorder },
+          ]}
+        >
+          <Text style={[styles.interimLabel, { color: c.warningText }]}>認識中:</Text>
+          <Text style={[styles.interimValue, { color: c.warningText, fontFamily: Fonts?.rounded }]}>
+            {interimText}
+          </Text>
         </View>
       )}
 
       {recognizedText && (
-        <View style={styles.resultContainer}>
-          <Text style={styles.label}>認識されたテキスト:</Text>
-          <Text style={styles.text}>{recognizedText}</Text>
+        <View
+          style={[styles.resultCard, { backgroundColor: c.surface, shadowColor: c.cardShadow }]}
+        >
+          <Text style={[styles.resultLabel, { color: c.textMuted }]}>認識されたテキスト:</Text>
+          <Text style={[styles.resultText, { color: c.textPrimary }]}>{recognizedText}</Text>
         </View>
       )}
 
       {recognizedNumber && (
-        <View style={styles.resultContainer}>
-          <Text style={styles.label}>抽出された数字:</Text>
-          <Text style={styles.number}>{recognizedNumber}</Text>
+        <View
+          style={[styles.resultCard, { backgroundColor: c.surface, shadowColor: c.cardShadow }]}
+        >
+          <Text style={[styles.resultLabel, { color: c.textMuted }]}>抽出された数字:</Text>
+          <Text style={[styles.numberText, { color: c.problemText, fontFamily: Fonts?.rounded }]}>
+            {recognizedNumber}
+          </Text>
         </View>
       )}
 
       {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.error}>{error}</Text>
+        <View
+          style={[styles.errorCard, { backgroundColor: c.errorBg, borderColor: c.errorBorder }]}
+        >
+          <Text style={[styles.errorText, { color: c.errorText }]}>{error}</Text>
         </View>
       )}
 
-      <View style={styles.buttonContainer}>
-        <View style={styles.button}>
-          <Button
-            title={isListening ? '停止' : '🎤 音声認識'}
-            onPress={isListening ? stopListening : startListening}
-            color={isListening ? '#f44336' : '#4CAF50'}
-          />
-        </View>
+      <View style={styles.buttonRow}>
+        <AppButton
+          title={isListening ? '停止' : '🎤 音声認識'}
+          onPress={isListening ? stopListening : startListening}
+          variant={isListening ? 'danger' : 'success'}
+        />
 
-        <View style={styles.button}>
-          <Button
-            title={autoRestart ? '連続OFF' : '連続ON'}
-            onPress={() => {
-              setAutoRestart(!autoRestart);
-              if (!autoRestart && !isListening) {
-                startListening();
-              }
-            }}
-            color={autoRestart ? '#FF9800' : '#9E9E9E'}
-          />
-        </View>
+        <AppButton
+          title={autoRestart ? '連続OFF' : '連続ON'}
+          onPress={() => {
+            setAutoRestart(!autoRestart);
+            if (!autoRestart && !isListening) {
+              startListening();
+            }
+          }}
+          variant={autoRestart ? 'warning' : 'ghost'}
+        />
 
         {(recognizedNumber || recognizedText) && (
-          <View style={styles.button}>
-            <Button title="クリア" onPress={clearResults} color="#757575" />
-          </View>
+          <AppButton title="クリア" onPress={clearResults} variant="ghost" />
         )}
       </View>
 
-      <View style={styles.infoContainer}>
-        <Text style={styles.infoText}>
-          💡 高精度認識のしくみ:{'\n'}• 複数の認識候補から最適な数字を自動選択
-          {'\n'}• 短い発音（「に」「し」「く」等）も認識可能{'\n'}•
-          暫定結果（オレンジ）でリアルタイム表示{'\n'}• 「連続ON」で次々と数字を認識できます{'\n'}•
-          確定するまで少し待つとより正確{'\n'}
+      <View style={[styles.infoCard, { backgroundColor: c.infoBg, borderColor: c.infoBorder }]}>
+        <Text style={[styles.infoText, { color: c.infoText }]}>
+          💡 高精度認識のしくみ:{'\n'}・ 複数の認識候補から最適な数字を自動選択{'\n'}・
+          短い発音（「に」「し」「く」等）も認識可能{'\n'}・ 暫定結果（オレンジ）でリアルタイム表示
+          {'\n'}・ 「連続ON」で次々と数字を認識できます{'\n'}・ 確定するまで少し待つとより正確{'\n'}
           {'\n'}
           対応範囲: 0〜99999
         </Text>
@@ -104,110 +123,101 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#f5f5f5',
   },
   title: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 30,
-    color: '#333',
+    fontSize: 26,
+    fontWeight: '800',
+    marginBottom: 28,
+    letterSpacing: -0.3,
   },
-  statusContainer: {
-    minHeight: 60,
+  statusArea: {
+    minHeight: 56,
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
   },
   listeningText: {
     fontSize: 18,
-    color: '#4CAF50',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   hintText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 8,
-    textAlign: 'center',
+    fontSize: 13,
+    marginTop: 6,
   },
-  interimContainer: {
-    backgroundColor: '#fff3e0',
-    padding: 15,
-    borderRadius: 8,
-    marginVertical: 10,
+  interimCard: {
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 12,
     width: '100%',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ffb74d',
+    borderWidth: 1.5,
   },
   interimLabel: {
-    fontSize: 12,
-    color: '#f57c00',
-    marginBottom: 5,
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  interimText: {
-    fontSize: 16,
-    color: '#e65100',
-    fontStyle: 'italic',
+  interimValue: {
+    fontSize: 18,
+    fontWeight: '700',
   },
-  resultContainer: {
-    backgroundColor: '#fff',
+  resultCard: {
     padding: 20,
-    borderRadius: 10,
-    marginVertical: 10,
+    borderRadius: 16,
+    marginBottom: 12,
     width: '100%',
     alignItems: 'center',
-    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 1,
+    shadowRadius: 6,
     elevation: 3,
   },
-  label: {
-    fontSize: 14,
-    color: '#666',
+  resultLabel: {
+    fontSize: 12,
+    fontWeight: '600',
     marginBottom: 8,
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
   },
-  text: {
+  resultText: {
     fontSize: 18,
-    color: '#333',
+    fontWeight: '600',
   },
-  number: {
+  numberText: {
     fontSize: 48,
-    fontWeight: 'bold',
-    color: '#2196F3',
+    fontWeight: '900',
   },
-  errorContainer: {
-    backgroundColor: '#ffebee',
-    padding: 15,
-    borderRadius: 8,
-    marginVertical: 10,
+  errorCard: {
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
     width: '100%',
+    borderWidth: 1,
   },
-  error: {
-    color: '#c62828',
+  errorText: {
     textAlign: 'center',
     fontSize: 14,
+    fontWeight: '500',
   },
-  buttonContainer: {
+  buttonRow: {
     flexDirection: 'row',
     justifyContent: 'center',
     flexWrap: 'wrap',
-    marginTop: 30,
-    gap: 10,
+    marginTop: 28,
+    gap: 12,
   },
-  button: {
-    minWidth: 120,
-  },
-  infoContainer: {
-    marginTop: 40,
-    padding: 15,
-    backgroundColor: '#e3f2fd',
-    borderRadius: 8,
+  infoCard: {
+    marginTop: 36,
+    padding: 16,
+    borderRadius: 14,
+    width: '100%',
+    borderWidth: 1,
   },
   infoText: {
-    fontSize: 12,
-    color: '#1976d2',
-    textAlign: 'left',
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 22,
+    fontWeight: '500',
   },
 });

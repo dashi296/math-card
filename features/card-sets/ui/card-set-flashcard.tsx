@@ -1,14 +1,18 @@
 import { useEffect, useRef, useState } from 'react';
-import { Button, StyleSheet, Text, View } from 'react-native';
+import { StyleSheet, Text, View } from 'react-native';
 import { useVoiceNumberRecognition } from '@/features/voice-recognition/model/use-voice-number-recognition';
+import { Fonts } from '@/shared/config/theme';
 import { CARD_TRANSITION_DELAY_MS, VOICE_RECOGNITION_START_DELAY_MS } from '@/shared/config/timing';
 import type { CardSet } from '@/shared/data/db/schema';
 import { calculateAccuracy } from '@/shared/lib/stats';
+import { useAppColors } from '@/shared/lib/use-app-colors';
 import { useSoundEffect } from '@/shared/lib/use-sound-effect';
+import { AppButton } from '@/shared/ui/app-button';
 import { useCardSetFlashcard } from '../model/use-card-set-flashcard';
 import CardSetSelector from './card-set-selector';
 
 export default function CardSetFlashcard() {
+  const c = useAppColors();
   const [selectedCardSet, setSelectedCardSet] = useState<CardSet | null>(null);
 
   const {
@@ -18,7 +22,6 @@ export default function CardSetFlashcard() {
     stats,
     showFeedback,
     isCompleted,
-    checkAnswer,
     checkAnswerWithCandidates,
     nextCard,
     resetFeedback,
@@ -37,20 +40,15 @@ export default function CardSetFlashcard() {
 
   const { playCorrectSound, playIncorrectSound } = useSoundEffect();
 
-  // Track the last checked number to avoid duplicate checks
   const lastCheckedNumberRef = useRef<string | null>(null);
-
-  // Track if user has started (first manual start)
   const [hasStarted, setHasStarted] = useState(false);
 
-  // カードセットが変更されたら、セッションをリセット
   useEffect(() => {
     setHasStarted(false);
     clearResults();
     lastCheckedNumberRef.current = null;
   }, [clearResults]);
 
-  // Play sound effect when answer is checked
   useEffect(() => {
     if (showFeedback) {
       if (isCorrect) {
@@ -61,39 +59,28 @@ export default function CardSetFlashcard() {
     }
   }, [showFeedback, isCorrect, playCorrectSound, playIncorrectSound]);
 
-  // Auto-advance to next card if answer is correct
   useEffect(() => {
     if (showFeedback && isCorrect) {
-      // Clear the recognized number
       clearResults();
-
-      // Wait a bit for clearResults to take effect before generating next card
       const timer = setTimeout(() => {
         nextCard();
       }, CARD_TRANSITION_DELAY_MS);
-
       return () => clearTimeout(timer);
     }
   }, [showFeedback, isCorrect, clearResults, nextCard]);
 
-  // Auto-start voice recognition when a new card is shown (only after initial start)
   useEffect(() => {
     if (hasStarted && currentCard && !showFeedback && !isListening) {
-      // Only reset ref if recognizedNumber has been cleared
       if (!recognizedNumber) {
         lastCheckedNumberRef.current = null;
       }
-
-      // Small delay to ensure UI is ready
       const timer = setTimeout(() => {
         startListening();
       }, VOICE_RECOGNITION_START_DELAY_MS);
-
       return () => clearTimeout(timer);
     }
   }, [hasStarted, currentCard, showFeedback, isListening, recognizedNumber, startListening]);
 
-  // Auto-check answer when a number is recognized
   useEffect(() => {
     if (
       recognizedNumber &&
@@ -103,12 +90,16 @@ export default function CardSetFlashcard() {
     ) {
       stopListening();
       lastCheckedNumberRef.current = recognizedNumber;
-
-      // すべての候補をチェック
       console.log('[CardSetFlashcard] Checking with all candidates:', allCandidateNumbers);
       checkAnswerWithCandidates(allCandidateNumbers);
     }
-  }, [recognizedNumber, allCandidateNumbers, showFeedback, checkAnswerWithCandidates, stopListening]);
+  }, [
+    recognizedNumber,
+    allCandidateNumbers,
+    showFeedback,
+    checkAnswerWithCandidates,
+    stopListening,
+  ]);
 
   const handleStart = () => {
     setHasStarted(true);
@@ -128,159 +119,181 @@ export default function CardSetFlashcard() {
     lastCheckedNumberRef.current = null;
   };
 
-  const renderActionButtons = () => {
-    if (!hasStarted) {
-      return (
-        <View style={styles.button}>
-          <Button title="🎤 開始する" onPress={handleStart} color="#4CAF50" />
-        </View>
-      );
-    }
-
-    if (!showFeedback) {
-      return (
-        <>
-          {isListening && (
-            <View style={styles.button}>
-              <Button title="⏸ 一時停止" onPress={stopListening} color="#f44336" />
-            </View>
-          )}
-          {!isListening && recognizedNumber && (
-            <View style={styles.button}>
-              <Button title="🎤 再認識" onPress={handleRetry} color="#FF9800" />
-            </View>
-          )}
-        </>
-      );
-    }
-
-    if (!isCorrect) {
-      return (
-        <View style={styles.button}>
-          <Button title="🔄 もう一度挑戦" onPress={handleRetry} color="#FF9800" />
-        </View>
-      );
-    }
-
-    return null;
-  };
-
-  // カードセットが選択されていない場合は、選択画面を表示
   if (!selectedCardSet) {
     return <CardSetSelector onSelectCardSet={setSelectedCardSet} selectedCardSetId={null} />;
   }
 
-  // 全てのカードが完了した場合
+  // Completion screen
   if (isCompleted) {
     const accuracy = calculateAccuracy(stats.correct, stats.total);
 
     return (
-      <View style={styles.container}>
-        <View style={styles.completionContainer}>
+      <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}>
+        <View
+          style={[styles.completionCard, { backgroundColor: c.surface, shadowColor: c.cardShadow }]}
+        >
           <Text style={styles.completionEmoji}>🎉</Text>
-          <Text style={styles.completionTitle}>おめでとうございます!</Text>
-          <Text style={styles.completionMessage}>全てのカードを完了しました!</Text>
+          <Text style={[styles.completionTitle, { color: c.success, fontFamily: Fonts?.rounded }]}>
+            おめでとうございます!
+          </Text>
+          <Text style={[styles.completionMessage, { color: c.textSecondary }]}>
+            全てのカードを完了しました!
+          </Text>
 
-          <View style={styles.statsContainer}>
+          <View style={[styles.statsRow, { backgroundColor: c.surfaceSecondary }]}>
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>正解</Text>
-              <Text style={[styles.statValue, styles.correctText]}>{stats.correct}</Text>
+              <Text style={[styles.statLabel, { color: c.textMuted }]}>正解</Text>
+              <Text
+                style={[styles.statValue, { color: c.statCorrect, fontFamily: Fonts?.rounded }]}
+              >
+                {stats.correct}
+              </Text>
             </View>
+            <View style={[styles.statDivider, { backgroundColor: c.border }]} />
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>不正解</Text>
-              <Text style={[styles.statValue, styles.incorrectText]}>{stats.incorrect}</Text>
+              <Text style={[styles.statLabel, { color: c.textMuted }]}>不正解</Text>
+              <Text
+                style={[styles.statValue, { color: c.statIncorrect, fontFamily: Fonts?.rounded }]}
+              >
+                {stats.incorrect}
+              </Text>
             </View>
+            <View style={[styles.statDivider, { backgroundColor: c.border }]} />
             <View style={styles.statItem}>
-              <Text style={styles.statLabel}>正解率</Text>
-              <Text style={styles.statValue}>{accuracy}%</Text>
+              <Text style={[styles.statLabel, { color: c.textMuted }]}>正解率</Text>
+              <Text
+                style={[styles.statValue, { color: c.statDefault, fontFamily: Fonts?.rounded }]}
+              >
+                {accuracy}%
+              </Text>
             </View>
           </View>
 
-          <View style={styles.button}>
-            <Button
-              title="別のカードセットを選ぶ"
-              onPress={handleBackToSelection}
-              color="#2196F3"
-            />
-          </View>
+          <AppButton
+            title="別のカードセットを選ぶ"
+            onPress={handleBackToSelection}
+            variant="primary"
+            fullWidth
+          />
         </View>
       </View>
     );
   }
 
-  // カードが読み込まれていない場合
   if (!currentCard) {
     return (
-      <View style={styles.container}>
-        <Text style={styles.loadingText}>カードを読み込み中...</Text>
+      <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}>
+        <Text style={[styles.loadingText, { color: c.textSecondary }]}>カードを読み込み中...</Text>
       </View>
     );
   }
 
   const accuracy = calculateAccuracy(stats.correct, stats.total);
+  const progress = stats.totalCards > 0 ? (stats.currentCardIndex + 1) / stats.totalCards : 0;
 
   return (
-    <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <Text style={styles.cardSetName}>{selectedCardSet.name}</Text>
-        <Text style={styles.progressText}>
+    <View style={[styles.container, { backgroundColor: c.surfaceSecondary }]}>
+      {/* Header with card set name and progress */}
+      <View style={styles.headerSection}>
+        <Text style={[styles.cardSetName, { color: c.primary, fontFamily: Fonts?.rounded }]}>
+          {selectedCardSet.name}
+        </Text>
+        <Text style={[styles.progressLabel, { color: c.textSecondary }]}>
           {stats.currentCardIndex + 1} / {stats.totalCards} 枚目
         </Text>
-      </View>
-
-      {/* Stats Section */}
-      <View style={styles.statsContainer}>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>正解</Text>
-          <Text style={[styles.statValue, styles.correctText]}>{stats.correct}</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>不正解</Text>
-          <Text style={[styles.statValue, styles.incorrectText]}>{stats.incorrect}</Text>
-        </View>
-        <View style={styles.statItem}>
-          <Text style={styles.statLabel}>正解率</Text>
-          <Text style={styles.statValue}>{accuracy}%</Text>
+        {/* Progress bar */}
+        <View style={[styles.progressTrack, { backgroundColor: c.border }]}>
+          <View
+            style={[
+              styles.progressFill,
+              { backgroundColor: c.primary, width: `${progress * 100}%` },
+            ]}
+          />
         </View>
       </View>
 
-      {/* Problem Section */}
-      <View style={styles.problemContainer}>
-        <Text style={styles.problemText}>
-          {currentCard.num1} {currentCard.operator === '*' ? '×' : currentCard.operator} {currentCard.num2} = ?
+      {/* Stats */}
+      <View style={[styles.statsRow, { backgroundColor: c.surface, shadowColor: c.cardShadow }]}>
+        <View style={styles.statItem}>
+          <Text style={[styles.statLabel, { color: c.textMuted }]}>正解</Text>
+          <Text style={[styles.statValue, { color: c.statCorrect, fontFamily: Fonts?.rounded }]}>
+            {stats.correct}
+          </Text>
+        </View>
+        <View style={[styles.statDivider, { backgroundColor: c.border }]} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statLabel, { color: c.textMuted }]}>不正解</Text>
+          <Text style={[styles.statValue, { color: c.statIncorrect, fontFamily: Fonts?.rounded }]}>
+            {stats.incorrect}
+          </Text>
+        </View>
+        <View style={[styles.statDivider, { backgroundColor: c.border }]} />
+        <View style={styles.statItem}>
+          <Text style={[styles.statLabel, { color: c.textMuted }]}>正解率</Text>
+          <Text style={[styles.statValue, { color: c.statDefault, fontFamily: Fonts?.rounded }]}>
+            {accuracy}%
+          </Text>
+        </View>
+      </View>
+
+      {/* Problem Card */}
+      <View style={[styles.problemCard, { backgroundColor: c.surface, shadowColor: c.cardShadow }]}>
+        <Text style={[styles.problemText, { color: c.problemText, fontFamily: Fonts?.rounded }]}>
+          {currentCard.num1} {currentCard.operator === '*' ? '×' : currentCard.operator}{' '}
+          {currentCard.num2} = ?
         </Text>
       </View>
 
-      {/* Voice Recognition Status */}
-      <View style={styles.statusContainer}>
+      {/* Listening Status */}
+      <View style={styles.statusArea}>
         {isListening && (
           <>
-            <Text style={styles.listeningText}>🎤 聞き取り中...</Text>
-            <Text style={styles.hintText}>答えを声で言ってください</Text>
+            <Text style={[styles.listeningText, { color: c.success, fontFamily: Fonts?.rounded }]}>
+              🎤 聞き取り中...
+            </Text>
+            <Text style={[styles.hintText, { color: c.textMuted }]}>答えを声で言ってください</Text>
           </>
         )}
       </View>
 
-      {/* Interim Recognition */}
+      {/* Interim */}
       {interimText && !showFeedback && (
-        <View style={styles.interimContainer}>
-          <Text style={styles.interimLabel}>認識中:</Text>
-          <Text style={styles.interimText}>{interimText}</Text>
+        <View
+          style={[
+            styles.interimCard,
+            { backgroundColor: c.warningBg, borderColor: c.warningBorder },
+          ]}
+        >
+          <Text style={[styles.interimLabel, { color: c.warningText }]}>認識中:</Text>
+          <Text style={[styles.interimValue, { color: c.warningText, fontFamily: Fonts?.rounded }]}>
+            {interimText}
+          </Text>
         </View>
       )}
 
-      {/* Feedback Section */}
+      {/* Feedback */}
       {showFeedback && (
         <View
           style={[
-            styles.feedbackContainer,
-            isCorrect ? styles.correctFeedback : styles.incorrectFeedback,
+            styles.feedbackCard,
+            isCorrect
+              ? { backgroundColor: c.successBg, borderColor: c.successBorder }
+              : { backgroundColor: c.errorBg, borderColor: c.errorBorder },
           ]}
         >
           <Text style={styles.feedbackEmoji}>{isCorrect ? '🎉' : '😅'}</Text>
-          <Text style={styles.feedbackText}>{isCorrect ? '正解!' : '残念!'}</Text>
-          <Text style={styles.answerText}>
+          <Text
+            style={[
+              styles.feedbackTitle,
+              {
+                color: isCorrect ? c.successText : c.errorText,
+                fontFamily: Fonts?.rounded,
+              },
+            ]}
+          >
+            {isCorrect ? '正解!' : '残念!'}
+          </Text>
+          <Text style={[styles.feedbackDetail, { color: c.textSecondary }]}>
             あなたの答え: {userAnswer}
             {'\n'}
             正解: {currentCard.answer}
@@ -288,29 +301,43 @@ export default function CardSetFlashcard() {
         </View>
       )}
 
-      {/* Error Display */}
+      {/* Error */}
       {error && (
-        <View style={styles.errorContainer}>
-          <Text style={styles.error}>{error}</Text>
+        <View
+          style={[styles.errorCard, { backgroundColor: c.errorBg, borderColor: c.errorBorder }]}
+        >
+          <Text style={[styles.errorText, { color: c.errorText }]}>{error}</Text>
         </View>
       )}
 
       {/* Action Buttons */}
-      <View style={styles.buttonContainer}>
-        {renderActionButtons()}
+      <View style={styles.actions}>
+        {!hasStarted && <AppButton title="🎤 開始する" onPress={handleStart} variant="success" />}
 
-        <View style={styles.button}>
-          <Button
-            title="← カードセット選択に戻る"
-            onPress={handleBackToSelection}
-            color="#757575"
-          />
-        </View>
+        {hasStarted && !showFeedback && isListening && (
+          <AppButton title="⏸ 一時停止" onPress={stopListening} variant="danger" />
+        )}
+
+        {hasStarted && !showFeedback && !isListening && recognizedNumber && (
+          <AppButton title="🎤 再認識" onPress={handleRetry} variant="warning" />
+        )}
+
+        {showFeedback && !isCorrect && (
+          <AppButton title="🔄 もう一度挑戦" onPress={handleRetry} variant="warning" />
+        )}
+      </View>
+
+      <View style={styles.backArea}>
+        <AppButton
+          title="← カードセット選択に戻る"
+          onPress={handleBackToSelection}
+          variant="ghost"
+        />
       </View>
 
       {/* Instructions */}
-      <View style={styles.infoContainer}>
-        <Text style={styles.infoText}>
+      <View style={[styles.infoCard, { backgroundColor: c.infoBg, borderColor: c.infoBorder }]}>
+        <Text style={[styles.infoText, { color: c.infoText }]}>
           💡 使い方:{'\n'}
           1. 「開始する」ボタンを押す{'\n'}
           2. 計算の答えを声で言う（例：「じゅうご」）{'\n'}
@@ -326,207 +353,197 @@ export default function CardSetFlashcard() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-    backgroundColor: '#f5f5f5',
   },
-  header: {
+  headerSection: {
     width: '100%',
     marginBottom: 20,
     alignItems: 'center',
   },
   cardSetName: {
     fontSize: 18,
-    fontWeight: 'bold',
-    color: '#2196F3',
-    marginBottom: 5,
+    fontWeight: '800',
+    marginBottom: 4,
   },
-  progressText: {
-    fontSize: 14,
-    color: '#666',
+  progressLabel: {
+    fontSize: 13,
+    fontWeight: '500',
+    marginBottom: 10,
   },
-  statsContainer: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
+  progressTrack: {
     width: '100%',
-    marginBottom: 30,
-    backgroundColor: '#fff',
-    padding: 15,
-    borderRadius: 10,
-    shadowColor: '#000',
+    height: 6,
+    borderRadius: 3,
+    overflow: 'hidden',
+  },
+  progressFill: {
+    height: '100%',
+    borderRadius: 3,
+  },
+  statsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    width: '100%',
+    marginBottom: 28,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
+    borderRadius: 16,
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
+    shadowOpacity: 1,
+    shadowRadius: 8,
     elevation: 3,
   },
   statItem: {
+    flex: 1,
     alignItems: 'center',
+  },
+  statDivider: {
+    width: 1,
+    height: 32,
   },
   statLabel: {
-    fontSize: 12,
-    color: '#666',
-    marginBottom: 5,
+    fontSize: 11,
+    fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.8,
+    marginBottom: 4,
   },
   statValue: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    color: '#333',
+    fontSize: 26,
+    fontWeight: '800',
   },
-  correctText: {
-    color: '#4CAF50',
-  },
-  incorrectText: {
-    color: '#f44336',
-  },
-  problemContainer: {
-    backgroundColor: '#fff',
-    padding: 40,
-    borderRadius: 15,
-    marginBottom: 30,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.15,
-    shadowRadius: 8,
-    elevation: 5,
+  problemCard: {
+    paddingVertical: 44,
+    paddingHorizontal: 48,
+    borderRadius: 24,
+    marginBottom: 28,
+    shadowOffset: { width: 0, height: 6 },
+    shadowOpacity: 1,
+    shadowRadius: 16,
+    elevation: 6,
   },
   problemText: {
-    fontSize: 48,
-    fontWeight: 'bold',
-    color: '#2196F3',
+    fontSize: 52,
+    fontWeight: '900',
     textAlign: 'center',
+    letterSpacing: 2,
   },
-  statusContainer: {
-    minHeight: 50,
+  statusArea: {
+    minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 16,
   },
   listeningText: {
     fontSize: 18,
-    color: '#4CAF50',
-    fontWeight: '600',
+    fontWeight: '700',
   },
   hintText: {
-    fontSize: 12,
-    color: '#666',
-    marginTop: 8,
-    textAlign: 'center',
+    fontSize: 13,
+    marginTop: 6,
   },
-  interimContainer: {
-    backgroundColor: '#fff3e0',
-    padding: 15,
-    borderRadius: 8,
-    marginVertical: 10,
+  interimCard: {
+    padding: 16,
+    borderRadius: 14,
+    marginBottom: 12,
     width: '100%',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#ffb74d',
+    borderWidth: 1.5,
   },
   interimLabel: {
-    fontSize: 12,
-    color: '#f57c00',
-    marginBottom: 5,
-  },
-  interimText: {
-    fontSize: 20,
-    color: '#e65100',
+    fontSize: 11,
     fontWeight: '600',
+    textTransform: 'uppercase',
+    letterSpacing: 0.5,
+    marginBottom: 4,
   },
-  feedbackContainer: {
-    padding: 30,
-    borderRadius: 15,
-    marginVertical: 20,
+  interimValue: {
+    fontSize: 22,
+    fontWeight: '700',
+  },
+  feedbackCard: {
+    padding: 28,
+    borderRadius: 20,
+    marginBottom: 20,
     width: '100%',
     alignItems: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.15,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  correctFeedback: {
-    backgroundColor: '#e8f5e9',
-    borderWidth: 2,
-    borderColor: '#4CAF50',
-  },
-  incorrectFeedback: {
-    backgroundColor: '#ffebee',
-    borderWidth: 2,
-    borderColor: '#f44336',
+    borderWidth: 1.5,
   },
   feedbackEmoji: {
-    fontSize: 48,
-    marginBottom: 10,
+    fontSize: 52,
+    marginBottom: 8,
   },
-  feedbackText: {
+  feedbackTitle: {
     fontSize: 28,
-    fontWeight: 'bold',
-    marginBottom: 15,
+    fontWeight: '800',
+    marginBottom: 12,
   },
-  answerText: {
-    fontSize: 16,
-    color: '#666',
+  feedbackDetail: {
+    fontSize: 15,
     textAlign: 'center',
     lineHeight: 24,
   },
-  errorContainer: {
-    backgroundColor: '#ffebee',
-    padding: 15,
-    borderRadius: 8,
-    marginVertical: 10,
+  errorCard: {
+    padding: 14,
+    borderRadius: 12,
+    marginBottom: 12,
     width: '100%',
+    borderWidth: 1,
   },
-  error: {
-    color: '#c62828',
+  errorText: {
     textAlign: 'center',
     fontSize: 14,
+    fontWeight: '500',
   },
-  buttonContainer: {
-    flexDirection: 'column',
+  actions: {
+    flexDirection: 'row',
     justifyContent: 'center',
+    flexWrap: 'wrap',
+    marginTop: 16,
+    gap: 12,
+  },
+  backArea: {
+    marginTop: 12,
     alignItems: 'center',
-    marginTop: 20,
-    gap: 10,
-    width: '100%',
   },
-  button: {
+  infoCard: {
+    marginTop: 28,
+    padding: 16,
+    borderRadius: 14,
     width: '100%',
-  },
-  infoContainer: {
-    marginTop: 30,
-    padding: 15,
-    backgroundColor: '#e3f2fd',
-    borderRadius: 8,
+    borderWidth: 1,
   },
   infoText: {
-    fontSize: 12,
-    color: '#1976d2',
-    textAlign: 'left',
-    lineHeight: 20,
+    fontSize: 13,
+    lineHeight: 22,
+    fontWeight: '500',
   },
   loadingText: {
     fontSize: 16,
     textAlign: 'center',
-    color: '#666',
   },
-  completionContainer: {
+  completionCard: {
     alignItems: 'center',
-    padding: 20,
+    padding: 32,
+    borderRadius: 24,
+    width: '100%',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 1,
+    shadowRadius: 12,
+    elevation: 4,
   },
   completionEmoji: {
-    fontSize: 80,
-    marginBottom: 20,
+    fontSize: 72,
+    marginBottom: 16,
   },
   completionTitle: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    color: '#4CAF50',
-    marginBottom: 10,
+    fontSize: 26,
+    fontWeight: '800',
+    marginBottom: 8,
   },
   completionMessage: {
-    fontSize: 18,
-    color: '#666',
-    marginBottom: 30,
+    fontSize: 16,
+    marginBottom: 28,
   },
 });
