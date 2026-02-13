@@ -11,6 +11,7 @@ export const practiceSessions = sqliteTable('practice_sessions', {
   elapsedTime: integer('elapsed_time'), // ミリ秒
   isCorrect: integer('is_correct', { mode: 'boolean' }),
   userAnswer: integer('user_answer'),
+  cardSetId: integer('card_set_id'),
   createdAt: integer('created_at', { mode: 'timestamp' })
     .notNull()
     .$defaultFn(() => new Date()),

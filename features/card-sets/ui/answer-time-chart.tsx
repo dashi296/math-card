@@ -3,27 +3,35 @@ import { Fonts } from '@/shared/config/theme';
 import { useAppColors } from '@/shared/lib/use-app-colors';
 
 interface AnswerTimeChartProps {
-  answerTimes: number[];
-  isCorrectResults: boolean[];
+  dailyData: { date: string; averageTime: number }[];
 }
 
-export default function AnswerTimeChart({ answerTimes, isCorrectResults }: AnswerTimeChartProps) {
+export default function AnswerTimeChart({ dailyData }: AnswerTimeChartProps) {
   const c = useAppColors();
 
-  if (answerTimes.length === 0) return null;
+  if (dailyData.length === 0) return null;
 
-  const timesInSeconds = answerTimes.map((t) => t / 1000);
+  const timesInSeconds = dailyData.map((d) => d.averageTime / 1000);
   const maxTime = Math.max(...timesInSeconds, 1);
-  const averageTime = timesInSeconds.reduce((sum, t) => sum + t, 0) / timesInSeconds.length;
-  const averageRatio = averageTime / maxTime;
+  const overallAverage = timesInSeconds.reduce((sum, t) => sum + t, 0) / timesInSeconds.length;
+  const averageRatio = overallAverage / maxTime;
+
+  // MM/DD形式にフォーマット
+  const formatDate = (dateStr: string) => {
+    const parts = dateStr.split('-');
+    if (parts.length === 3) {
+      return `${Number.parseInt(parts[1], 10)}/${Number.parseInt(parts[2], 10)}`;
+    }
+    return dateStr;
+  };
 
   return (
     <View style={styles.container}>
       <Text style={[styles.title, { color: c.textPrimary, fontFamily: Fonts?.rounded }]}>
-        回答時間
+        日別の平均回答時間
       </Text>
       <Text style={[styles.averageLabel, { color: c.textSecondary }]}>
-        平均: {averageTime.toFixed(1)}秒
+        全体平均: {overallAverage.toFixed(1)}秒
       </Text>
 
       <View style={styles.chartArea}>
@@ -50,8 +58,7 @@ export default function AnswerTimeChart({ answerTimes, isCorrectResults }: Answe
           <View style={styles.barsRow}>
             {timesInSeconds.map((time, index) => {
               const ratio = time / maxTime;
-              const barColor = isCorrectResults[index] ? c.success : c.error;
-              const key = `card-${index + 1}-${Math.round(time * 100)}`;
+              const key = `day-${dailyData[index].date}`;
 
               return (
                 <View key={key} style={styles.barWrapper}>
@@ -60,13 +67,15 @@ export default function AnswerTimeChart({ answerTimes, isCorrectResults }: Answe
                       style={[
                         styles.bar,
                         {
-                          backgroundColor: barColor,
+                          backgroundColor: c.primary,
                           height: `${Math.max(ratio * 100, 2)}%`,
                         },
                       ]}
                     />
                   </View>
-                  <Text style={[styles.xLabel, { color: c.textMuted }]}>{index + 1}</Text>
+                  <Text style={[styles.xLabel, { color: c.textMuted }]}>
+                    {formatDate(dailyData[index].date)}
+                  </Text>
                 </View>
               );
             })}
@@ -77,16 +86,12 @@ export default function AnswerTimeChart({ answerTimes, isCorrectResults }: Answe
       {/* 凡例 */}
       <View style={styles.legend}>
         <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: c.success }]} />
-          <Text style={[styles.legendText, { color: c.textSecondary }]}>正解</Text>
-        </View>
-        <View style={styles.legendItem}>
-          <View style={[styles.legendDot, { backgroundColor: c.error }]} />
-          <Text style={[styles.legendText, { color: c.textSecondary }]}>不正解</Text>
+          <View style={[styles.legendDot, { backgroundColor: c.primary }]} />
+          <Text style={[styles.legendText, { color: c.textSecondary }]}>日別平均</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDash, { borderColor: c.warning }]} />
-          <Text style={[styles.legendText, { color: c.textSecondary }]}>平均</Text>
+          <Text style={[styles.legendText, { color: c.textSecondary }]}>全体平均</Text>
         </View>
       </View>
     </View>

@@ -3,6 +3,7 @@ import { initializeDatabase } from '@/shared/data/db/client';
 import type { CardSet } from '@/shared/data/db/schema';
 import {
   endPracticeSession,
+  getDailyAverageAnswerTimes,
   resetCardSetProgress,
   startPracticeSession,
   updateCardSetProgress,
@@ -17,8 +18,6 @@ export interface CardSetFlashcardStats {
   currentCardIndex: number;
   totalCards: number;
   progressId: number | null;
-  answerTimes: number[];
-  isCorrectResults: boolean[];
 }
 
 /**
@@ -37,9 +36,10 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     currentCardIndex: 0,
     totalCards: 0,
     progressId: null,
-    answerTimes: [],
-    isCorrectResults: [],
   });
+  const [dailyAverageData, setDailyAverageData] = useState<{ date: string; averageTime: number }[]>(
+    []
+  );
 
   // Use ref to keep the latest problem without causing checkAnswer to change
   const currentCardRef = useRef<MathCard | null>(currentCard);
@@ -68,8 +68,6 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
         currentCardIndex: 0,
         totalCards: cardList.length,
         progressId: progress.id,
-        answerTimes: [],
-        isCorrectResults: [],
       });
 
       // 最初のカードを設定
@@ -84,8 +82,6 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
         currentCardIndex: 0,
         totalCards: cardList.length,
         progressId: null,
-        answerTimes: [],
-        isCorrectResults: [],
       });
       setCurrentCard(cardList[0] || null);
     }
@@ -103,8 +99,6 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
         currentCardIndex: 0,
         totalCards: 0,
         progressId: null,
-        answerTimes: [],
-        isCorrectResults: [],
       });
       return;
     }
@@ -140,15 +134,13 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
       setShowFeedback(true);
       console.log('Set showFeedback to true, correct:', correct);
 
-      // データベースに問題とセッション結果を保存し、経過時間を取得
-      let elapsedTime = 0;
+      // データベースにセッション結果を保存
       if (currentSessionIdRef.current !== null) {
         try {
-          const session = await endPracticeSession(currentSessionIdRef.current, {
+          await endPracticeSession(currentSessionIdRef.current, {
             isCorrect: correct,
             userAnswer: answer,
           });
-          elapsedTime = session.elapsedTime ?? 0;
           console.log('[Database] Session ended');
         } catch (error) {
           console.error('[Database] Failed to end session:', error);
@@ -161,8 +153,6 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
         correct: stats.correct + (correct ? 1 : 0),
         incorrect: stats.incorrect + (correct ? 0 : 1),
         total: stats.total + 1,
-        answerTimes: [...stats.answerTimes, elapsedTime],
-        isCorrectResults: [...stats.isCorrectResults, correct],
       };
       setStats(newStats);
 
@@ -208,15 +198,13 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
       setShowFeedback(true);
       console.log('Set showFeedback to true, correct:', hasCorrectAnswer);
 
-      // データベースに問題とセッション結果を保存し、経過時間を取得
-      let elapsedTime = 0;
+      // データベースにセッション結果を保存
       if (currentSessionIdRef.current !== null) {
         try {
-          const session = await endPracticeSession(currentSessionIdRef.current, {
+          await endPracticeSession(currentSessionIdRef.current, {
             isCorrect: hasCorrectAnswer,
             userAnswer: displayAnswer,
           });
-          elapsedTime = session.elapsedTime ?? 0;
           console.log('[Database] Session ended');
         } catch (error) {
           console.error('[Database] Failed to end session:', error);
@@ -229,8 +217,6 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
         correct: stats.correct + (hasCorrectAnswer ? 1 : 0),
         incorrect: stats.incorrect + (hasCorrectAnswer ? 0 : 1),
         total: stats.total + 1,
-        answerTimes: [...stats.answerTimes, elapsedTime],
-        isCorrectResults: [...stats.isCorrectResults, hasCorrectAnswer],
       };
       setStats(newStats);
 
@@ -270,7 +256,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
 
     // セッションを開始
     try {
-      const session = await startPracticeSession();
+      const session = await startPracticeSession(cardSet?.id);
       currentSessionIdRef.current = session.id;
       console.log('[Database] Session started:', session);
     } catch (error) {
@@ -299,7 +285,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     setIsCorrect(null);
     setShowFeedback(false);
     console.log('[nextCard] Set showFeedback to false');
-  }, [cards, stats]);
+  }, [cards, stats, cardSet]);
 
   // フィードバックをリセット（同じ問題をもう一度試す）
   const resetFeedback = useCallback(() => {
@@ -312,7 +298,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
   // 最初のカードを準備（セッションを開始）
   useEffect(() => {
     if (currentCard && currentSessionIdRef.current === null) {
-      startPracticeSession()
+      startPracticeSession(cardSet?.id)
         .then((session) => {
           currentSessionIdRef.current = session.id;
           console.log('[Database] Initial session started:', session);
@@ -321,7 +307,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
           console.error('[Database] Failed to start session:', error);
         });
     }
-  }, [currentCard]);
+  }, [currentCard, cardSet]);
 
   // [DEV] 最後の1問まで飛ばす（完了画面の確認用）
   const skipToLastCard = useCallback(async () => {
@@ -330,16 +316,11 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     const lastIndex = cards.length - 1;
     const lastCard = cards[lastIndex];
 
-    // スキップした分のダミー回答時間と正誤データを生成
-    const dummyTimes = Array.from({ length: lastIndex }, () =>
-      Math.round((1 + Math.random() * 8) * 1000)
-    );
-    const dummyResults = Array.from({ length: lastIndex }, () => Math.random() > 0.3);
-    const dummyCorrect = dummyResults.filter(Boolean).length;
+    const dummyCorrect = Math.round(lastIndex * 0.7);
 
     // セッションを開始
     try {
-      const session = await startPracticeSession();
+      const session = await startPracticeSession(cardSet?.id);
       currentSessionIdRef.current = session.id;
     } catch (error) {
       console.error('[Database] Failed to start session:', error);
@@ -351,17 +332,29 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
       correct: dummyCorrect,
       incorrect: lastIndex - dummyCorrect,
       total: lastIndex,
-      answerTimes: dummyTimes,
-      isCorrectResults: dummyResults,
     }));
 
     setCurrentCard(lastCard);
     setUserAnswer(null);
     setIsCorrect(null);
     setShowFeedback(false);
-  }, [cards]);
+  }, [cards, cardSet]);
 
   const isCompleted = currentCard === null && cards.length > 0;
+
+  // 完了時に日次平均回答時間データを取得
+  useEffect(() => {
+    if (isCompleted && cardSet) {
+      getDailyAverageAnswerTimes(cardSet.id)
+        .then((data) => {
+          setDailyAverageData(data);
+          console.log('[CardSetFlashcard] Daily average data:', data);
+        })
+        .catch((error) => {
+          console.error('[CardSetFlashcard] Failed to get daily averages:', error);
+        });
+    }
+  }, [isCompleted, cardSet]);
 
   return {
     currentCard,
@@ -370,6 +363,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     stats,
     showFeedback,
     isCompleted,
+    dailyAverageData,
     checkAnswer,
     checkAnswerWithCandidates,
     nextCard,
