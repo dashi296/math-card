@@ -17,6 +17,8 @@ export interface CardSetFlashcardStats {
   currentCardIndex: number;
   totalCards: number;
   progressId: number | null;
+  answerTimes: number[];
+  isCorrectResults: boolean[];
 }
 
 /**
@@ -35,6 +37,8 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     currentCardIndex: 0,
     totalCards: 0,
     progressId: null,
+    answerTimes: [],
+    isCorrectResults: [],
   });
 
   // Use ref to keep the latest problem without causing checkAnswer to change
@@ -64,6 +68,8 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
         currentCardIndex: 0,
         totalCards: cardList.length,
         progressId: progress.id,
+        answerTimes: [],
+        isCorrectResults: [],
       });
 
       // 最初のカードを設定
@@ -78,6 +84,8 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
         currentCardIndex: 0,
         totalCards: cardList.length,
         progressId: null,
+        answerTimes: [],
+        isCorrectResults: [],
       });
       setCurrentCard(cardList[0] || null);
     }
@@ -95,6 +103,8 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
         currentCardIndex: 0,
         totalCards: 0,
         progressId: null,
+        answerTimes: [],
+        isCorrectResults: [],
       });
       return;
     }
@@ -130,27 +140,31 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
       setShowFeedback(true);
       console.log('Set showFeedback to true, correct:', correct);
 
+      // データベースに問題とセッション結果を保存し、経過時間を取得
+      let elapsedTime = 0;
+      if (currentSessionIdRef.current !== null) {
+        try {
+          const session = await endPracticeSession(currentSessionIdRef.current, {
+            isCorrect: correct,
+            userAnswer: answer,
+          });
+          elapsedTime = session.elapsedTime ?? 0;
+          console.log('[Database] Session ended');
+        } catch (error) {
+          console.error('[Database] Failed to end session:', error);
+        }
+      }
+
       // 統計情報を更新
       const newStats = {
         ...stats,
         correct: stats.correct + (correct ? 1 : 0),
         incorrect: stats.incorrect + (correct ? 0 : 1),
         total: stats.total + 1,
+        answerTimes: [...stats.answerTimes, elapsedTime],
+        isCorrectResults: [...stats.isCorrectResults, correct],
       };
       setStats(newStats);
-
-      // データベースに問題とセッション結果を保存
-      if (currentSessionIdRef.current !== null) {
-        try {
-          await endPracticeSession(currentSessionIdRef.current, {
-            isCorrect: correct,
-            userAnswer: answer,
-          });
-          console.log('[Database] Session ended');
-        } catch (error) {
-          console.error('[Database] Failed to end session:', error);
-        }
-      }
 
       // 進捗を更新
       if (stats.progressId && cardSet) {
@@ -194,27 +208,31 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
       setShowFeedback(true);
       console.log('Set showFeedback to true, correct:', hasCorrectAnswer);
 
+      // データベースに問題とセッション結果を保存し、経過時間を取得
+      let elapsedTime = 0;
+      if (currentSessionIdRef.current !== null) {
+        try {
+          const session = await endPracticeSession(currentSessionIdRef.current, {
+            isCorrect: hasCorrectAnswer,
+            userAnswer: displayAnswer,
+          });
+          elapsedTime = session.elapsedTime ?? 0;
+          console.log('[Database] Session ended');
+        } catch (error) {
+          console.error('[Database] Failed to end session:', error);
+        }
+      }
+
       // 統計情報を更新
       const newStats = {
         ...stats,
         correct: stats.correct + (hasCorrectAnswer ? 1 : 0),
         incorrect: stats.incorrect + (hasCorrectAnswer ? 0 : 1),
         total: stats.total + 1,
+        answerTimes: [...stats.answerTimes, elapsedTime],
+        isCorrectResults: [...stats.isCorrectResults, hasCorrectAnswer],
       };
       setStats(newStats);
-
-      // データベースに問題とセッション結果を保存
-      if (currentSessionIdRef.current !== null) {
-        try {
-          await endPracticeSession(currentSessionIdRef.current, {
-            isCorrect: hasCorrectAnswer,
-            userAnswer: displayAnswer,
-          });
-          console.log('[Database] Session ended');
-        } catch (error) {
-          console.error('[Database] Failed to end session:', error);
-        }
-      }
 
       // 進捗を更新
       if (stats.progressId && cardSet) {
@@ -305,6 +323,44 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     }
   }, [currentCard]);
 
+  // [DEV] 最後の1問まで飛ばす（完了画面の確認用）
+  const skipToLastCard = useCallback(async () => {
+    if (!__DEV__ || cards.length < 2) return;
+
+    const lastIndex = cards.length - 1;
+    const lastCard = cards[lastIndex];
+
+    // スキップした分のダミー回答時間と正誤データを生成
+    const dummyTimes = Array.from({ length: lastIndex }, () =>
+      Math.round((1 + Math.random() * 8) * 1000)
+    );
+    const dummyResults = Array.from({ length: lastIndex }, () => Math.random() > 0.3);
+    const dummyCorrect = dummyResults.filter(Boolean).length;
+
+    // セッションを開始
+    try {
+      const session = await startPracticeSession();
+      currentSessionIdRef.current = session.id;
+    } catch (error) {
+      console.error('[Database] Failed to start session:', error);
+    }
+
+    setStats((prev) => ({
+      ...prev,
+      currentCardIndex: lastIndex,
+      correct: dummyCorrect,
+      incorrect: lastIndex - dummyCorrect,
+      total: lastIndex,
+      answerTimes: dummyTimes,
+      isCorrectResults: dummyResults,
+    }));
+
+    setCurrentCard(lastCard);
+    setUserAnswer(null);
+    setIsCorrect(null);
+    setShowFeedback(false);
+  }, [cards]);
+
   const isCompleted = currentCard === null && cards.length > 0;
 
   return {
@@ -318,5 +374,6 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     checkAnswerWithCandidates,
     nextCard,
     resetFeedback,
+    skipToLastCard,
   };
 }
