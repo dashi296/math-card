@@ -9,6 +9,7 @@ import { useAppColors } from '@/shared/lib/use-app-colors';
 import { useSoundEffect } from '@/shared/lib/use-sound-effect';
 import { AppButton } from '@/shared/ui/app-button';
 import { useCardSetFlashcard } from '../model/use-card-set-flashcard';
+import AnswerTimeChart from './answer-time-chart';
 import CardSetSelector from './card-set-selector';
 
 export default function CardSetFlashcard() {
@@ -22,9 +23,11 @@ export default function CardSetFlashcard() {
     stats,
     showFeedback,
     isCompleted,
+    dailyAverageData,
     checkAnswerWithCandidates,
     nextCard,
     resetFeedback,
+    skipToLastCard,
   } = useCardSetFlashcard(selectedCardSet);
 
   const {
@@ -168,6 +171,8 @@ export default function CardSetFlashcard() {
               </Text>
             </View>
           </View>
+
+          <AnswerTimeChart dailyData={dailyAverageData} />
 
           <AppButton
             title="別のカードセットを選ぶ"
@@ -334,6 +339,12 @@ export default function CardSetFlashcard() {
           variant="ghost"
         />
       </View>
+
+      {__DEV__ && stats.totalCards > 1 && (
+        <View style={styles.devArea}>
+          <AppButton title="[DEV] 最後の1問まで飛ばす" onPress={skipToLastCard} variant="ghost" />
+        </View>
+      )}
 
       {/* Instructions */}
       <View style={[styles.infoCard, { backgroundColor: c.infoBg, borderColor: c.infoBorder }]}>
@@ -506,6 +517,11 @@ const styles = StyleSheet.create({
   backArea: {
     marginTop: 12,
     alignItems: 'center',
+  },
+  devArea: {
+    marginTop: 4,
+    alignItems: 'center',
+    opacity: 0.6,
   },
   infoCard: {
     marginTop: 28,
