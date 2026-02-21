@@ -1,13 +1,14 @@
-import { eq } from 'drizzle-orm';
+import { and, eq, isNotNull, sql } from 'drizzle-orm';
 import { db } from './client';
 import { cardSetProgress, cardSets, type NewCardSet, practiceSessions } from './schema';
 
 // 練習セッションを開始（開始時刻のみ記録）
-export async function startPracticeSession() {
+export async function startPracticeSession(cardSetId?: number) {
   const result = await db
     .insert(practiceSessions)
     .values({
       startedAt: new Date(),
+      cardSetId: cardSetId ?? null,
       createdAt: new Date(),
     })
     .returning();
@@ -76,6 +77,40 @@ export async function getSessionStats() {
     averageTime: Math.round(averageTime),
     totalTime,
   };
+}
+
+/**
+ * 指定カードセットの日毎の平均回答時間を取得
+ */
+export async function getDailyAverageAnswerTimes(
+  cardSetId: number,
+  days = 30
+): Promise<{ date: string; averageTime: number }[]> {
+  const cutoffDate = new Date();
+  cutoffDate.setDate(cutoffDate.getDate() - days);
+  // mode: 'timestamp' はDBに秒単位で保存するため、秒に変換
+  const cutoffTimestamp = Math.floor(cutoffDate.getTime() / 1000);
+
+  const rows = await db
+    .select({
+      date: sql<string>`date(${practiceSessions.startedAt}, 'unixepoch', 'localtime')`,
+      averageTime: sql<number>`avg(${practiceSessions.elapsedTime})`,
+    })
+    .from(practiceSessions)
+    .where(
+      and(
+        eq(practiceSessions.cardSetId, cardSetId),
+        isNotNull(practiceSessions.elapsedTime),
+        sql`${practiceSessions.startedAt} >= ${cutoffTimestamp}`
+      )
+    )
+    .groupBy(sql`date(${practiceSessions.startedAt}, 'unixepoch', 'localtime')`)
+    .orderBy(sql`date(${practiceSessions.startedAt}, 'unixepoch', 'localtime')`);
+
+  return rows.map((row) => ({
+    date: row.date,
+    averageTime: Math.round(row.averageTime),
+  }));
 }
 
 // ============================================

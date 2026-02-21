@@ -3,6 +3,7 @@ import { initializeDatabase } from '@/shared/data/db/client';
 import type { CardSet } from '@/shared/data/db/schema';
 import {
   endPracticeSession,
+  getDailyAverageAnswerTimes,
   resetCardSetProgress,
   startPracticeSession,
   updateCardSetProgress,
@@ -36,6 +37,9 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     totalCards: 0,
     progressId: null,
   });
+  const [dailyAverageData, setDailyAverageData] = useState<{ date: string; averageTime: number }[]>(
+    []
+  );
 
   // Use ref to keep the latest problem without causing checkAnswer to change
   const currentCardRef = useRef<MathCard | null>(currentCard);
@@ -130,16 +134,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
       setShowFeedback(true);
       console.log('Set showFeedback to true, correct:', correct);
 
-      // 統計情報を更新
-      const newStats = {
-        ...stats,
-        correct: stats.correct + (correct ? 1 : 0),
-        incorrect: stats.incorrect + (correct ? 0 : 1),
-        total: stats.total + 1,
-      };
-      setStats(newStats);
-
-      // データベースに問題とセッション結果を保存
+      // データベースにセッション結果を保存
       if (currentSessionIdRef.current !== null) {
         try {
           await endPracticeSession(currentSessionIdRef.current, {
@@ -151,6 +146,15 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
           console.error('[Database] Failed to end session:', error);
         }
       }
+
+      // 統計情報を更新
+      const newStats = {
+        ...stats,
+        correct: stats.correct + (correct ? 1 : 0),
+        incorrect: stats.incorrect + (correct ? 0 : 1),
+        total: stats.total + 1,
+      };
+      setStats(newStats);
 
       // 進捗を更新
       if (stats.progressId && cardSet) {
@@ -194,16 +198,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
       setShowFeedback(true);
       console.log('Set showFeedback to true, correct:', hasCorrectAnswer);
 
-      // 統計情報を更新
-      const newStats = {
-        ...stats,
-        correct: stats.correct + (hasCorrectAnswer ? 1 : 0),
-        incorrect: stats.incorrect + (hasCorrectAnswer ? 0 : 1),
-        total: stats.total + 1,
-      };
-      setStats(newStats);
-
-      // データベースに問題とセッション結果を保存
+      // データベースにセッション結果を保存
       if (currentSessionIdRef.current !== null) {
         try {
           await endPracticeSession(currentSessionIdRef.current, {
@@ -215,6 +210,15 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
           console.error('[Database] Failed to end session:', error);
         }
       }
+
+      // 統計情報を更新
+      const newStats = {
+        ...stats,
+        correct: stats.correct + (hasCorrectAnswer ? 1 : 0),
+        incorrect: stats.incorrect + (hasCorrectAnswer ? 0 : 1),
+        total: stats.total + 1,
+      };
+      setStats(newStats);
 
       // 進捗を更新
       if (stats.progressId && cardSet) {
@@ -252,7 +256,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
 
     // セッションを開始
     try {
-      const session = await startPracticeSession();
+      const session = await startPracticeSession(cardSet?.id);
       currentSessionIdRef.current = session.id;
       console.log('[Database] Session started:', session);
     } catch (error) {
@@ -281,7 +285,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     setIsCorrect(null);
     setShowFeedback(false);
     console.log('[nextCard] Set showFeedback to false');
-  }, [cards, stats]);
+  }, [cards, stats, cardSet]);
 
   // フィードバックをリセット（同じ問題をもう一度試す）
   const resetFeedback = useCallback(() => {
@@ -294,7 +298,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
   // 最初のカードを準備（セッションを開始）
   useEffect(() => {
     if (currentCard && currentSessionIdRef.current === null) {
-      startPracticeSession()
+      startPracticeSession(cardSet?.id)
         .then((session) => {
           currentSessionIdRef.current = session.id;
           console.log('[Database] Initial session started:', session);
@@ -303,9 +307,54 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
           console.error('[Database] Failed to start session:', error);
         });
     }
-  }, [currentCard]);
+  }, [currentCard, cardSet]);
+
+  // [DEV] 最後の1問まで飛ばす（完了画面の確認用）
+  const skipToLastCard = useCallback(async () => {
+    if (!__DEV__ || cards.length < 2) return;
+
+    const lastIndex = cards.length - 1;
+    const lastCard = cards[lastIndex];
+
+    const dummyCorrect = Math.round(lastIndex * 0.7);
+
+    // セッションを開始
+    try {
+      const session = await startPracticeSession(cardSet?.id);
+      currentSessionIdRef.current = session.id;
+    } catch (error) {
+      console.error('[Database] Failed to start session:', error);
+    }
+
+    setStats((prev) => ({
+      ...prev,
+      currentCardIndex: lastIndex,
+      correct: dummyCorrect,
+      incorrect: lastIndex - dummyCorrect,
+      total: lastIndex,
+    }));
+
+    setCurrentCard(lastCard);
+    setUserAnswer(null);
+    setIsCorrect(null);
+    setShowFeedback(false);
+  }, [cards, cardSet]);
 
   const isCompleted = currentCard === null && cards.length > 0;
+
+  // 完了時に日次平均回答時間データを取得
+  useEffect(() => {
+    if (isCompleted && cardSet) {
+      getDailyAverageAnswerTimes(cardSet.id)
+        .then((data) => {
+          setDailyAverageData(data);
+          console.log('[CardSetFlashcard] Daily average data:', data);
+        })
+        .catch((error) => {
+          console.error('[CardSetFlashcard] Failed to get daily averages:', error);
+        });
+    }
+  }, [isCompleted, cardSet]);
 
   return {
     currentCard,
@@ -314,9 +363,11 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     stats,
     showFeedback,
     isCompleted,
+    dailyAverageData,
     checkAnswer,
     checkAnswerWithCandidates,
     nextCard,
     resetFeedback,
+    skipToLastCard,
   };
 }

@@ -56,6 +56,14 @@ export async function initializeDatabase() {
       );
     `);
 
+    // マイグレーション: practice_sessionsにcard_set_idカラムを追加
+    try {
+      await expoDb.execAsync('ALTER TABLE practice_sessions ADD COLUMN card_set_id INTEGER');
+      console.log('[Database] Added card_set_id column');
+    } catch {
+      // カラムが既に存在する場合は無視
+    }
+
     console.log('[Database] Tables initialized successfully');
   } catch (error) {
     console.error('[Database] Initialization error:', error);
