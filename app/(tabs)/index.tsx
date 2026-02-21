@@ -1,14 +1,9 @@
-import { useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import CardSetFlashcard from '@/features/card-sets/ui/card-set-flashcard';
-import MathFlashcard from '@/features/math-practice/ui/math-flashcard';
 import { Fonts } from '@/shared/config/theme';
 import { useAppColors } from '@/shared/lib/use-app-colors';
 
-type Mode = 'card-set' | 'random';
-
 export default function HomeScreen() {
-  const [mode, setMode] = useState<Mode>('card-set');
   const c = useAppColors();
 
   return (
@@ -26,43 +21,8 @@ export default function HomeScreen() {
         </Text>
       </View>
 
-      <View style={[styles.modeToggle, { backgroundColor: c.surface, borderColor: c.border }]}>
-        <Pressable
-          style={[styles.modeTab, mode === 'card-set' && { backgroundColor: c.primary }]}
-          onPress={() => setMode('card-set')}
-        >
-          <Text
-            style={[
-              styles.modeTabText,
-              {
-                color: mode === 'card-set' ? c.primaryText : c.textSecondary,
-                fontFamily: Fonts?.rounded,
-              },
-            ]}
-          >
-            カードセット
-          </Text>
-        </Pressable>
-        <Pressable
-          style={[styles.modeTab, mode === 'random' && { backgroundColor: c.primary }]}
-          onPress={() => setMode('random')}
-        >
-          <Text
-            style={[
-              styles.modeTabText,
-              {
-                color: mode === 'random' ? c.primaryText : c.textSecondary,
-                fontFamily: Fonts?.rounded,
-              },
-            ]}
-          >
-            ランダム
-          </Text>
-        </Pressable>
-      </View>
-
       <View style={styles.flashcardContainer}>
-        {mode === 'card-set' ? <CardSetFlashcard /> : <MathFlashcard />}
+        <CardSetFlashcard />
       </View>
     </ScrollView>
   );
@@ -94,24 +54,6 @@ const styles = StyleSheet.create({
   subtitle: {
     fontSize: 15,
     fontWeight: '400',
-  },
-  modeToggle: {
-    flexDirection: 'row',
-    marginHorizontal: 24,
-    marginBottom: 24,
-    borderRadius: 16,
-    padding: 4,
-    borderWidth: 1,
-  },
-  modeTab: {
-    flex: 1,
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-  },
-  modeTabText: {
-    fontSize: 15,
-    fontWeight: '700',
   },
   flashcardContainer: {
     flex: 1,
