@@ -3,7 +3,7 @@ import { initializeDatabase } from '@/shared/data/db/client';
 import type { CardSet } from '@/shared/data/db/schema';
 import {
   endPracticeSession,
-  getDailyAverageAnswerTimes,
+  getDailyMinAnswerTimes,
   resetCardSetProgress,
   startPracticeSession,
   updateCardSetProgress,
@@ -37,9 +37,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     totalCards: 0,
     progressId: null,
   });
-  const [dailyAverageData, setDailyAverageData] = useState<{ date: string; averageTime: number }[]>(
-    []
-  );
+  const [dailyMinData, setDailyMinData] = useState<{ date: string; minTime: number }[]>([]);
 
   // Use ref to keep the latest problem without causing checkAnswer to change
   const currentCardRef = useRef<MathCard | null>(currentCard);
@@ -342,16 +340,16 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
 
   const isCompleted = currentCard === null && cards.length > 0;
 
-  // 完了時に日次平均回答時間データを取得
+  // 完了時に日次最短回答時間データを取得
   useEffect(() => {
     if (isCompleted && cardSet) {
-      getDailyAverageAnswerTimes(cardSet.id)
+      getDailyMinAnswerTimes(cardSet.id)
         .then((data) => {
-          setDailyAverageData(data);
-          console.log('[CardSetFlashcard] Daily average data:', data);
+          setDailyMinData(data);
+          console.log('[CardSetFlashcard] Daily min data:', data);
         })
         .catch((error) => {
-          console.error('[CardSetFlashcard] Failed to get daily averages:', error);
+          console.error('[CardSetFlashcard] Failed to get daily min times:', error);
         });
     }
   }, [isCompleted, cardSet]);
@@ -363,7 +361,7 @@ export function useCardSetFlashcard(cardSet: CardSet | null) {
     stats,
     showFeedback,
     isCompleted,
-    dailyAverageData,
+    dailyMinData,
     checkAnswer,
     checkAnswerWithCandidates,
     nextCard,

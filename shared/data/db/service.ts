@@ -80,12 +80,12 @@ export async function getSessionStats() {
 }
 
 /**
- * 指定カードセットの日毎の平均回答時間を取得
+ * 指定カードセットの日毎の最短回答時間を取得
  */
-export async function getDailyAverageAnswerTimes(
+export async function getDailyMinAnswerTimes(
   cardSetId: number,
   days = 30
-): Promise<{ date: string; averageTime: number }[]> {
+): Promise<{ date: string; minTime: number }[]> {
   const cutoffDate = new Date();
   cutoffDate.setDate(cutoffDate.getDate() - days);
   // mode: 'timestamp' はDBに秒単位で保存するため、秒に変換
@@ -94,7 +94,7 @@ export async function getDailyAverageAnswerTimes(
   const rows = await db
     .select({
       date: sql<string>`date(${practiceSessions.startedAt}, 'unixepoch', 'localtime')`,
-      averageTime: sql<number>`avg(${practiceSessions.elapsedTime})`,
+      minTime: sql<number>`min(${practiceSessions.elapsedTime})`,
     })
     .from(practiceSessions)
     .where(
@@ -109,7 +109,7 @@ export async function getDailyAverageAnswerTimes(
 
   return rows.map((row) => ({
     date: row.date,
-    averageTime: Math.round(row.averageTime),
+    minTime: Math.round(row.minTime),
   }));
 }
 
