@@ -3,7 +3,7 @@ import { Fonts } from '@/shared/config/theme';
 import { useAppColors } from '@/shared/lib/use-app-colors';
 
 interface AnswerTimeChartProps {
-  dailyData: { date: string; averageTime: number }[];
+  dailyData: { date: string; minTime: number }[];
 }
 
 export default function AnswerTimeChart({ dailyData }: AnswerTimeChartProps) {
@@ -11,7 +11,7 @@ export default function AnswerTimeChart({ dailyData }: AnswerTimeChartProps) {
 
   if (dailyData.length === 0) return null;
 
-  const timesInSeconds = dailyData.map((d) => d.averageTime / 1000);
+  const timesInSeconds = dailyData.map((d) => d.minTime / 1000);
   const maxTime = Math.max(...timesInSeconds, 1);
   const overallAverage = timesInSeconds.reduce((sum, t) => sum + t, 0) / timesInSeconds.length;
   const averageRatio = overallAverage / maxTime;
@@ -28,7 +28,7 @@ export default function AnswerTimeChart({ dailyData }: AnswerTimeChartProps) {
   return (
     <View style={styles.container}>
       <Text style={[styles.title, { color: c.textPrimary, fontFamily: Fonts?.rounded }]}>
-        日別の平均回答時間
+        日別の最短回答時間
       </Text>
       <Text style={[styles.averageLabel, { color: c.textSecondary }]}>
         全体平均: {overallAverage.toFixed(1)}秒
@@ -87,7 +87,7 @@ export default function AnswerTimeChart({ dailyData }: AnswerTimeChartProps) {
       <View style={styles.legend}>
         <View style={styles.legendItem}>
           <View style={[styles.legendDot, { backgroundColor: c.primary }]} />
-          <Text style={[styles.legendText, { color: c.textSecondary }]}>日別平均</Text>
+          <Text style={[styles.legendText, { color: c.textSecondary }]}>日別最短</Text>
         </View>
         <View style={styles.legendItem}>
           <View style={[styles.legendDash, { borderColor: c.warning }]} />

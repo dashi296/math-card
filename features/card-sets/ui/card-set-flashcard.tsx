@@ -23,7 +23,7 @@ export default function CardSetFlashcard() {
     stats,
     showFeedback,
     isCompleted,
-    dailyAverageData,
+    dailyMinData,
     checkAnswerWithCandidates,
     nextCard,
     resetFeedback,
@@ -172,7 +172,7 @@ export default function CardSetFlashcard() {
             </View>
           </View>
 
-          <AnswerTimeChart dailyData={dailyAverageData} />
+          <AnswerTimeChart dailyData={dailyMinData} />
 
           <AppButton
             title="別のカードセットを選ぶ"
